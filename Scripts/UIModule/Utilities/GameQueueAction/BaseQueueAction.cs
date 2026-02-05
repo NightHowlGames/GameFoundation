@@ -1,8 +1,7 @@
 namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
 {
     using System;
-    using UniRx;
-    using Zenject;
+    using R3;
 
     public class BaseQueueAction : IGameQueueAction
     {
@@ -16,7 +15,6 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
         public event Action<IGameQueueAction> OnExecute;
         public event Action<IGameQueueAction> OnStart;
         public event Action<IGameQueueAction> OnComplete;
-
 
         public BaseQueueAction(string actionId, string location)
         {
@@ -34,16 +32,18 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
             this.OnExecute?.Invoke(this);
             this.isExecuting = true;
             if (this.delay > 0)
-            {
-                Observable.Timer(TimeSpan.FromSeconds(this.delay)).Subscribe(l => { this.Action(); });
-            }
+                Observable.Timer(TimeSpan.FromSeconds(this.delay)).Subscribe(l =>
+                {
+                    this.Action();
+                });
             else
-            {
                 this.Action();
-            }
         }
 
-        protected virtual void Action() { this.OnStart?.Invoke(this); }
+        protected virtual void Action()
+        {
+            this.OnStart?.Invoke(this);
+        }
 
         // Need to call this somewhere in derived class
         public virtual void Complete()
@@ -76,24 +76,6 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
             this.OnExecute   = null;
             this.OnStart     = null;
             this.OnComplete  = null;
-
-            this.pool?.Despawn(this);
-        }
-
-        private IMemoryPool pool;
-
-        public void OnDespawned() { this.pool = null; }
-        public void OnSpawned(IMemoryPool poolParam, string actionIdParam, string locationParam)
-        {
-            this.pool = poolParam;
-
-            this.actionId      = actionIdParam;
-            this.dependActions = null;
-
-            this.location    = locationParam;
-            this.state       = null;
-            this.delay       = -1f;
-            this.isExecuting = false;
         }
     }
 }

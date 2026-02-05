@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using GameConfigs;
-using GameFoundation.Scripts.Utilities.Extension;
+using Models;
+using UniT.Extensions;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,14 +13,13 @@ public class GDKManagerEditor : EditorWindow
     private VisualElement initPanel;
     private VisualElement configPanel;
 
-
     private List<IGameConfigEditor> listGameConfigEditors = new();
 
     [MenuItem("GDK/GDKManager")]
     public static void ShowExample()
     {
-        GDKManagerEditor wnd = GetWindow<GDKManagerEditor>();
-        wnd.titleContent = new GUIContent("GDKManager");
+        var wnd = GetWindow<GDKManagerEditor>();
+        wnd.titleContent = new("GDKManager");
     }
 
     public void CreateGUI()
@@ -56,7 +55,7 @@ public class GDKManagerEditor : EditorWindow
 
     private void LoadSDKConfig(GDKConfig gdkConfig)
     {
-        foreach (var gameConfigEditorType in ReflectionUtils.GetAllDerivedTypes<IGameConfigEditor>())
+        foreach (var gameConfigEditorType in typeof(IGameConfigEditor).GetDerivedTypes())
         {
             var gameConfigEditor = (IGameConfigEditor)Activator.CreateInstance(gameConfigEditorType);
             gameConfigEditor.InitConfig(gdkConfig);
@@ -72,9 +71,6 @@ public class GDKManagerEditor : EditorWindow
         this.configPanel.SetActive(true);
         this.initPanel.SetActive(false);
 
-        foreach (var configEditor in this.listGameConfigEditors)
-        {
-            this.configPanel.Add(configEditor.LoadView());
-        }
+        foreach (var configEditor in this.listGameConfigEditors) this.configPanel.Add(configEditor.LoadView());
     }
 }

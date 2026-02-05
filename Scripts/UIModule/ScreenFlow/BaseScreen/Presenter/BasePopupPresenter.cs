@@ -1,15 +1,17 @@
 namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
 {
-    using System.Threading.Tasks;
+    using System;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.ScreenFlow.Signals;
-    using GameFoundation.Scripts.Utilities.LogService;
-    using Zenject;
+    using GameFoundation.Signals;
+    using UniT.Logging;
 
     public abstract class BasePopupPresenter<TView> : BaseScreenPresenter<TView> where TView : IScreenView
     {
-        public BasePopupPresenter(SignalBus signalBus) : base(signalBus) { }
+        protected BasePopupPresenter(SignalBus signalBus, ILoggerManager loggerManager) : base(signalBus, loggerManager)
+        {
+        }
 
         public override async UniTask OpenViewAsync()
         {
@@ -33,6 +35,7 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
             this.SignalBus.Fire(new ScreenCloseSignal() { ScreenPresenter = this });
             this.Dispose();
         }
+
         public override void HideView()
         {
             if (this.ScreenStatus == ScreenStatus.Hide) return;
@@ -45,37 +48,23 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
 
     public abstract class BasePopupPresenter<TView, TModel> : BasePopupPresenter<TView>, IScreenPresenter<TModel> where TView : IScreenView
     {
-        protected readonly ILogService logService;
-        protected          TModel      Model;
+        protected TModel Model { get; private set; }
 
-        protected BasePopupPresenter(SignalBus signalBus, ILogService logService) : base(signalBus) { this.logService = logService; }
-
-        public async UniTask OpenViewAsync(TModel model)
+        protected BasePopupPresenter(SignalBus signalBus, ILoggerManager loggerManager) : base(signalBus, loggerManager)
         {
-            if (model != null)
-            {
-                this.Model = model;
-            }
+        }
 
+        public virtual async UniTask OpenViewAsync(TModel model)
+        {
+            this.Model = model ?? throw new ArgumentNullException();
             await this.OpenViewAsync();
         }
 
-        public override async UniTask OpenViewAsync()
+        public sealed override UniTask BindData()
         {
-            if (this.Model != null)
-            {
-                await this.BindData(this.Model);
-            }
-            else
-            {
-                this.logService.Warning($"{this.GetType().Name} don't have Model!!!");
-            }
-
-            await base.OpenViewAsync();
+            return this.BindData(this.Model);
         }
 
-        public sealed override UniTask BindData() { return UniTask.CompletedTask; }
-
-        public abstract UniTask BindData(TModel popupModel);
+        public abstract UniTask BindData(TModel screenModel);
     }
 }

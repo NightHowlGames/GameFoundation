@@ -1,0 +1,11 @@
+{
+  "name": "GameFoundation.UserData",
+  "references": [
+    "GameFoundation.Signals",
+    "GameFoundation.DI",
+    "UniTask",
+    "UniT.Logging",
+    "UniT.Extensions",
+    "UniT.Data"
+  ]
+}

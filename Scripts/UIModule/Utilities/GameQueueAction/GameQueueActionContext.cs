@@ -2,14 +2,19 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
 {
     using System;
     using DG.Tweening;
+    using GameFoundation.Scripts.UIModule.ScreenFlow;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
     using UnityEngine.Playables;
+    using UnityEngine.Scripting;
 
     public class GameQueueActionContext
     {
         private readonly GameQueueActionServices gameQueueActionServices;
         private readonly IScreenManager          screenManager;
+
+        [Preserve]
         public GameQueueActionContext(GameQueueActionServices gameQueueActionServices, IScreenManager screenManager)
         {
             this.gameQueueActionServices = gameQueueActionServices;
@@ -24,63 +29,64 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
         /// <param name="location"></param>
         /// <param name="autoHandleComplete"></param>
         /// <returns></returns>
-        public IGameQueueAction AddCommonActionToQueueAction(Action<IGameQueueAction> action, string actionId, string location = "", bool autoHandleComplete = true)
+        public IGameQueueAction AddCommonActionToQueueAction(Action<IGameQueueAction> action, string actionId, string location, bool autoHandleComplete = true)
         {
             var baseAction = new BaseQueueAction(actionId, location);
             baseAction.OnStart += queueAction =>
             {
                 action?.Invoke(baseAction);
-                if (autoHandleComplete)
-                {
-                    baseAction.Complete();
-                }
+                if (autoHandleComplete) baseAction.Complete();
             };
 
             this.gameQueueActionServices.Append(baseAction);
             return baseAction;
         }
 
-        public IGameQueueAction AddScreenToQueueAction<T>(string actionId = "", string location = "") where T : IScreenPresenter
+        public IGameQueueAction AddScreenToQueueAction<TPresenter, TLocationView>(string actionId = "") where TPresenter : IScreenPresenter where TLocationView : IScreenView
         {
-            var action = new ShowPopupQueueAction<T>(this.screenManager, string.IsNullOrEmpty(actionId) ? $"ShowScreen_{typeof(T).Name}" : actionId, location);
+            return this.AddScreenToQueueAction<TPresenter>(actionId, ScreenHelper.GetScreenId<TLocationView>());
+        }
+
+        public IGameQueueAction AddScreenToQueueAction<TPresenter>(string actionId = "", string location = "") where TPresenter : IScreenPresenter
+        {
+            var action = new ShowPopupQueueAction<TPresenter>(this.screenManager, string.IsNullOrEmpty(actionId) ? $"ShowScreen_{typeof(TPresenter).Name}" : actionId, this.GetCurrentLocation(location));
             this.gameQueueActionServices.Append(action);
             return action;
         }
-        
-        public IGameQueueAction AddScreenToQueueActionCustom<TModel>(Type type, TModel model, string customPath, string actionId = "", string location = "", float delay = 0f)
+
+        public IGameQueueAction AddScreenToQueueAction<TPresenter, TModel, TLocationView>(TModel model, string actionId = "") where TPresenter : IScreenPresenter<TModel> where TLocationView : IScreenView
         {
-            var action = new ShowPopupQueueActionCustom<TModel>(this.screenManager, type, customPath, string.IsNullOrEmpty(actionId) ? $"ShowScreen_{type.Name}" : actionId, location);
-            action.SetState(model);
-            action.SetDelay(delay);
-            this.gameQueueActionServices.Append(action);
-            return action;
+            return this.AddScreenToQueueAction<TPresenter, TModel>(model, actionId, ScreenHelper.GetScreenId<TLocationView>());
         }
 
         public IGameQueueAction AddScreenToQueueAction<TPresenter, TModel>(TModel model, string actionId = "", string location = "") where TPresenter : IScreenPresenter<TModel>
         {
-            var action = new ShowPopupQueueAction<TPresenter, TModel>(this.screenManager, string.IsNullOrEmpty(actionId) ? $"ShowScreen_{typeof(TPresenter).Name}" : actionId, location);
+            var action = new ShowPopupQueueAction<TPresenter, TModel>(this.screenManager, string.IsNullOrEmpty(actionId) ? $"ShowScreen_{typeof(TPresenter).Name}" : actionId, this.GetCurrentLocation(location));
             action.SetState(model);
             this.gameQueueActionServices.Append(action);
             return action;
         }
 
-        public string GetCurrentLocation() { return this.screenManager.CurrentActiveScreen.Value.ScreenId; }
+        private string GetCurrentLocation(string location)
+        {
+            return string.IsNullOrEmpty(location) ? this.screenManager.CurrentActiveScreen.Value.ScreenId : location;
+        }
 
-        public IGameQueueAction AddTimelineToQueueAction<T>(T timeline, string actionId, string location = "") where T : PlayableDirector
+        public IGameQueueAction AddTimelineToQueueAction<T>(T timeline, string actionId, string location) where T : PlayableDirector
         {
             var action = new PlayTimelineQueueAction(timeline, actionId, location);
             this.gameQueueActionServices.Append(action);
             return action;
         }
 
-        public IGameQueueAction AddTweenToQueueAction<T>(T tween, string actionId, string location = "") where T : Tween
+        public IGameQueueAction AddTweenToQueueAction<T>(T tween, string actionId, string location) where T : Tween
         {
             var action = new PlayTweenQueueAction(tween, actionId, location);
             this.gameQueueActionServices.Append(action);
             return action;
         }
 
-        public IGameQueueAction SetIndex(IGameQueueAction action, int priority)
+        public IGameQueueAction SetPriority(IGameQueueAction action, int priority)
         {
             this.gameQueueActionServices.UpdateIndexInQueue(action, priority);
             return action;

@@ -1,78 +1,77 @@
 namespace GameFoundation.Scripts.UIModule.Utilities.UIStuff
 {
     using Cysharp.Threading.Tasks;
-    using Sirenix.OdinInspector;
+    using GameFoundation.DI;
     using UnityEngine;
     using UnityEngine.EventSystems;
-    using UnityEngine.Serialization;
-
-    public interface ITransitionAnimationUnit
-    {
-        UniTask PlayAnimation(string animType);
-        void    OnCompleteAnim();
-        void    SetupAnim();
-    }
-
-    public abstract class TransitionAnimationUnit : MonoBehaviour, ITransitionAnimationUnit
-    {
-        public virtual UniTask PlayAnimation(string animType) {return UniTask.CompletedTask;}
-
-        public virtual void OnCompleteAnim() { }
-
-        public virtual void SetupAnim() { }
-    }
+    using UnityEngine.Playables;
 
     public class UIScreenTransition : MonoBehaviour
     {
-        [SerializeField] public TransitionAnimationUnit transitionAnimationUnit;
+        [SerializeField] private PlayableDirector introAnimation;
+        [SerializeField] private PlayableDirector outroAnimation;
 
-        [Tooltip("If true, disable EventSystem while animation is running.")] [SerializeField]
-        private bool lockInput = true;
-        [SerializeField] private bool waitTransition = true;
+        [Tooltip("if lockInput = true, disable event system while anim is running and otherwise.")] [SerializeField] private bool lockInput = true;
 
-        private EventSystem             eventSystem;
+        public DirectorUpdateMode DirectorUpdateMode = DirectorUpdateMode.UnscaledGameTime;
+
+        private EventSystem eventSystem;
+        private EventSystem EventSystem => this.eventSystem ? this.eventSystem : this.eventSystem = this.GetCurrentContainer().Resolve<EventSystem>();
+        
         private UniTaskCompletionSource animationTask;
+
+        public PlayableDirector IntroAnimation => this.introAnimation;
+        public PlayableDirector OutroAnimation => this.outroAnimation;
 
         private void Awake()
         {
-            this.eventSystem = EventSystem.current;
-
-            if (this.transitionAnimationUnit == null) return;
-            this.transitionAnimationUnit.SetupAnim();
-        }
-
-        public UniTask PlayIntroAnim() => PlayAnim("Intro");
-
-        public UniTask PlayOutroAnim() => PlayAnim("Outro");
-
-        [Button]
-        private UniTask PlayAnim(string animType)
-        {
-            if (transitionAnimationUnit == null) return UniTask.CompletedTask;
-
-            if (this.animationTask?.Task.Status == UniTaskStatus.Pending)
-                return UniTask.CompletedTask;
-
-            this.animationTask = new UniTaskCompletionSource();
-            this.SetLockInput(true);
-
-            var task = transitionAnimationUnit.PlayAnimation(animType);
-
-            task.ContinueWith(() =>
+            this.introAnimation.timeUpdateMode =   this.DirectorUpdateMode;
+            this.outroAnimation.timeUpdateMode =   this.DirectorUpdateMode;
+            if (this.introAnimation.playableAsset)
             {
-                this.animationTask.TrySetResult();
-                this.SetLockInput(false);
-            });
-            
-            return !waitTransition ? UniTask.CompletedTask : this.animationTask.Task;
-        }
-
-        private void SetLockInput(bool value)
-        {
-            if (this.lockInput && this.eventSystem != null)
-            {
-                this.eventSystem.enabled = !value;
+                this.introAnimation.playOnAwake =  false;
+                this.introAnimation.stopped     += this.OnAnimComplete;
             }
+
+            if (this.outroAnimation.playableAsset)
+            {
+                this.outroAnimation.playOnAwake =  false;
+                this.outroAnimation.stopped     += this.OnAnimComplete;
+            }
+        }
+
+        public UniTask PlayIntroAnim()
+        {
+            return this.PlayAnim(this.introAnimation);
+        }
+
+        public UniTask PlayOutroAnim()
+        {
+            return this.PlayAnim(this.outroAnimation);
+        }
+
+        private UniTask PlayAnim(PlayableDirector anim)
+        {
+            if (!anim.playableAsset) return UniTask.CompletedTask;
+
+            this.animationTask = new();
+            this.SetActiveInput(false);
+
+            anim.time = 0;
+            anim.Evaluate();
+            anim.Play();
+            return this.animationTask.Task;
+        }
+
+        private void OnAnimComplete(PlayableDirector obj)
+        {
+            this.animationTask.TrySetResult();
+            this.SetActiveInput(true);
+        }
+
+        private void SetActiveInput(bool value)
+        {
+            if (this.lockInput && this.EventSystem != null) this.EventSystem.enabled = value;
         }
     }
 }

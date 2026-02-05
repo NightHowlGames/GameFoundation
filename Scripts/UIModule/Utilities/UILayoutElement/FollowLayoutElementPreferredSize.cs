@@ -10,10 +10,8 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
     {
         [SerializeField] private bool isValid;
 
-        [Tooltip("Target component must be inherited from ILayoutElement")]
-        [SerializeField] private LayoutGroup target;
-        [Tooltip("Can be null if Target Component and Target RectTransform is in the same object")]
-        [SerializeField] private RectTransform targetRectTransform;
+        [Tooltip("Target component must be inherited from ILayoutElement")] [SerializeField]                         private LayoutGroup   target;
+        [Tooltip("Can be null if Target Component and Target RectTransform is in the same object")] [SerializeField] private RectTransform targetRectTransform;
 
         [SerializeField] private bool fitWidth;
         [SerializeField] private bool fitHeight;
@@ -23,30 +21,24 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
 
         private DrivenRectTransformTracker m_Tracker;
         private RectTransform              m_Rect;
+
         private RectTransform rectTransform
         {
             get
             {
-                if (this.m_Rect == null)
-                    this.m_Rect = this.GetComponent<RectTransform>();
+                if (this.m_Rect == null) this.m_Rect = this.GetComponent<RectTransform>();
                 return this.m_Rect;
             }
         }
 
-        private RectTransform TargetRectTransform
-        {
-            get
-            {
-                return this.targetRectTransform;
-            }
-        }
+        private RectTransform TargetRectTransform => this.targetRectTransform;
 
         private WaitForEndOfFrame waitForEndOfFrame;
 
         protected override void Start()
         {
             base.Start();
-            this.waitForEndOfFrame = new WaitForEndOfFrame();
+            this.waitForEndOfFrame = new();
         }
 
         protected override void OnEnable()
@@ -73,18 +65,17 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
             this.SetDirty();
         }
 
-#if UNITY_EDITOR
+        #if UNITY_EDITOR
         protected override void OnValidate()
         {
             this.SetDirty();
         }
 
-#endif
+        #endif
 
         protected void SetDirty()
         {
-            if (!this.IsActive())
-                return;
+            if (!this.IsActive()) return;
             if (!CanvasUpdateRegistry.IsRebuildingLayout())
                 LayoutRebuilder.MarkLayoutForRebuild(this.rectTransform);
             else
@@ -93,7 +84,6 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
 
         private IEnumerator DelayedSetDirty(RectTransform rectTransform)
         {
-
             yield return this.waitForEndOfFrame;
             LayoutRebuilder.MarkLayoutForRebuild(rectTransform);
         }
@@ -103,9 +93,6 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
             this.m_Tracker.Clear();
             if (this.isValid && this.fitWidth)
             {
-                this.target.CalculateLayoutInputHorizontal();
-                this.target.CalculateLayoutInputVertical();
-
                 var targetValueX     = this.rectTransform.sizeDelta.x + ((ILayoutElement)this.target).preferredWidth - this.TargetRectTransform.rect.width;
                 var maxX             = this.maxValue.x > 0 ? this.maxValue.x : targetValueX;
                 var preferredValuesX = Mathf.Clamp(targetValueX, this.minValue.x, maxX);
@@ -119,11 +106,7 @@ namespace GameFoundation.Scripts.UIModule.Utilities.UILayoutElement
         {
             if (this.isValid && this.fitHeight)
             {
-                this.target.CalculateLayoutInputHorizontal();
-                this.target.CalculateLayoutInputVertical();
-
-                var targetValueX = this.rectTransform.sizeDelta.y +
-                    ((ILayoutElement)this.target).preferredHeight - this.TargetRectTransform.rect.height;
+                var targetValueX     = this.rectTransform.sizeDelta.y + ((ILayoutElement)this.target).preferredHeight - this.TargetRectTransform.rect.height;
                 var maxY             = this.maxValue.y > 0 ? this.maxValue.y : targetValueX;
                 var preferredValuesY = Mathf.Clamp(targetValueX, this.minValue.y, maxY);
                 if (Mathf.Approximately(preferredValuesY, this.rectTransform.sizeDelta.y)) return;

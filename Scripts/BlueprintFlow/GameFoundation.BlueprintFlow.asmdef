@@ -1,0 +1,34 @@
+{
+  "name": "GameFoundation.BlueprintFlow",
+  "rootNamespace": "GameFoundation.BlueprintFlow",
+  "references": [
+    "GameFoundation.DI",
+    "GameFoundation.Signals",
+    "GameFoundation.Models",
+    "GameFoundation.Utilities",
+    "UniTask",
+    "Zenject",
+    "VContainer",
+    "UniT.Extensions",
+    "UniT.Logging",
+    "GameFoundation.UserData",
+    "UniT.Data"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.gdk.network",
+      "expression": "",
+      "define": "GDK_NETWORK_ENABLE"
+    },
+    {
+      "name": "com.svermeulen.extenject",
+      "expression": "",
+      "define": "GDK_ZENJECT"
+    },
+    {
+      "name": "jp.hadashikick.vcontainer",
+      "expression": "",
+      "define": "GDK_VCONTAINER"
+    }
+  ]
+}

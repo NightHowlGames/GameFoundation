@@ -4,13 +4,13 @@ namespace GameFoundation.Scripts.UIModule.CommonScreen
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
-    using GameFoundation.Scripts.UIModule.Utilities;
     using GameFoundation.Scripts.Utilities;
-    using GameFoundation.Scripts.Utilities.LogService;
+    using GameFoundation.Signals;
+    using UniT.Logging;
     using TMPro;
     using UnityEngine;
+    using UnityEngine.Scripting;
     using UnityEngine.UI;
-    using Zenject;
 
     public enum NotificationType
     {
@@ -37,18 +37,22 @@ namespace GameFoundation.Scripts.UIModule.CommonScreen
         public GameObject      CloseObj    => this.closeObj;
     }
 
-    [PopupInfo("UIPopupNotice", isEnableBlur: false, isCloseWhenTapOutside: false, isOverlay: true)]
+    [PopupInfo("UIPopupNotice", true, false, true)]
     public class NotificationPopupPresenter : BasePopupPresenter<NotificationPopupUIView, NotificationPopupModel>
     {
-        private readonly IAudioManager audioManager;
-        public NotificationPopupPresenter(SignalBus signalBus, ILogService logService, IAudioManager audioManager) : base(signalBus, logService) { this.audioManager = audioManager; }
+        private readonly IAudioService audioManager;
+
+        [Preserve]
+        public NotificationPopupPresenter(SignalBus signalBus, ILoggerManager loggerManager, IAudioService audioManager) : base(signalBus, loggerManager)
+        {
+            this.audioManager = audioManager;
+        }
 
         public override UniTask BindData(NotificationPopupModel popupPopupModel)
         {
             this.Init();
             this.SetNotificationContent();
             this.SwitchMode();
-
             return UniTask.CompletedTask;
         }
 

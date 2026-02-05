@@ -1,36 +1,36 @@
 {
-    "name": "GameFoundation.UIModule",
-    "rootNamespace": "",
-    "references": [
-        "Unity.RenderPipelines.Universal.Runtime",
-        "UniTask",
-        "GameFoundation.AssetLibrary",
-        "GameFoundation.Utilities",
-        "Unity.TextMeshPro",
-        "OSA.Core",
-        "UniRx",
-        "Unity.Addressables",
-        "Unity.ResourceManager",
-        "UniTask.Addressables",
-        "Zenject-Source",
-        "Zenject-Signals",
-        "DOTween.Modules",
-        "LeTai.TranslucentImage",
-        "GameFoundation.SoundManager",
-        "DOTweenPro.Scripts"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": true,
-    "precompiledReferences": [
-        "DOTween.dll",
-        "Sirenix.OdinInspector.Attributes.dll",
-        "Zenject-usage.dll",
-        "DOTweenPro.dll"
-    ],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+  "name": "GameFoundation.UIModule",
+  "rootNamespace": "GameFoundation.UIModule",
+  "references": [
+    "GameFoundation.Signals",
+    "GameFoundation.Utilities",
+    "GameFoundation.DI",
+    "Unity.TextMeshPro",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "DOTween.Modules",
+    "OSA.Core",
+    "UniTask",
+    "UniTask.Addressables",
+    "R3.Unity",
+    "Zenject",
+    "VContainer",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "LeTai.TranslucentImage.Scripts",
+    "UniT.Extensions",
+    "UniT.ResourceManagement",
+    "UniT.Logging"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.svermeulen.extenject",
+      "expression": "",
+      "define": "GDK_ZENJECT"
+    },
+    {
+      "name": "jp.hadashikick.vcontainer",
+      "expression": "",
+      "define": "GDK_VCONTAINER"
+    }
+  ]
 }

@@ -1,9 +1,8 @@
 namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
 {
     using System;
-    using Zenject;
 
-    public interface IGameQueueAction : IDisposable, IPoolable<IMemoryPool,string, string>
+    public interface IGameQueueAction : IDisposable
     {
         string                         actionId      { get; }
         string[]                       dependActions { get; }
@@ -18,8 +17,8 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
         void Execute();
         void Complete();
 
-        IGameQueueAction SetState(object state);
-        IGameQueueAction SetDelay(float time);
+        IGameQueueAction SetState(object                  state);
+        IGameQueueAction SetDelay(float                   time);
         IGameQueueAction SetDependActions(params string[] dependActions);
     }
 }

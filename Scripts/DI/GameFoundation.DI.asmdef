@@ -1,0 +1,21 @@
+{
+  "name": "GameFoundation.DI",
+  "rootNamespace": "GameFoundation.DI",
+  "references": [
+    "Zenject",
+    "VContainer",
+    "UniT.Extensions"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.svermeulen.extenject",
+      "expression": "",
+      "define": "GDK_ZENJECT"
+    },
+    {
+      "name": "jp.hadashikick.vcontainer",
+      "expression": "",
+      "define": "GDK_VCONTAINER"
+    }
+  ]
+}

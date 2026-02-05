@@ -5,7 +5,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         private const string ITEM_VIEW_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
-    using GameFoundation.Scripts.AssetLibrary;
+    using UniT.ResourceManagement;
     using GameFoundation.Scripts.UIModule.MVP;
     
     public class X_MODEL_NAME
@@ -18,7 +18,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
     
     public class X_PRESENTER_NAME : BaseUIItemPresenter<X_VIEW_NAME ,X_MODEL_NAME>
     {
-        public X_PRESENTER_NAME(IGameAssets gameAssets) : base(gameAssets) { }
+        public X_PRESENTER_NAME(IAssetsManager assetsManager) : base(assetsManager) { }
         public override void BindData(X_MODEL_NAME param) { }
     }
 }";

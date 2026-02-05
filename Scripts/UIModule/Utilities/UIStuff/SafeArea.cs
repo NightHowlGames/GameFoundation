@@ -1,7 +1,7 @@
 namespace UIModule.Utilities.UIStuff
 {
-    using Sirenix.OdinInspector;
     using UnityEngine;
+    using UnityEngine.UI;
 
     /// <summary>
     ///     Safe area implementation for notched mobile devices. Usage:
@@ -15,25 +15,19 @@ namespace UIModule.Utilities.UIStuff
     /// </summary>
     public class SafeArea : MonoBehaviour
     {
-        [SerializeField]
-        private bool conformX = true; // Conform to screen safe area on X-axis (default true, disable to ignore)
-        
-        [SerializeField, ShowIf(nameof(conformX))] private bool minX = true;
-        [SerializeField, ShowIf(nameof(conformX))] private bool maxX = true;
+        [SerializeField] private bool conformX = true; // Conform to screen safe area on X-axis (default true, disable to ignore)
 
-        [SerializeField]
-        private bool conformY = true; // Conform to screen safe area on Y-axis (default true, disable to ignore)
-        
-        [SerializeField, ShowIf(nameof(conformY))] private bool minY = true;
-        [SerializeField, ShowIf(nameof(conformY))] private bool maxY = true;
-        
-        
-        private Rect          lastSafeArea = new Rect(0, 0, 0, 0);
+        [SerializeField] private bool conformY = true; // Conform to screen safe area on Y-axis (default true, disable to ignore)
+        [SerializeField] private bool stretch  = true; // Stretch to fill the safe area (default true, disable to ignore)
+
+        private Rect          lastSafeArea = new(0, 0, 0, 0);
         private RectTransform panel;
+        private CanvasScaler  canvasScaler;
 
         private void Awake()
         {
-            this.panel = this.GetComponent<RectTransform>();
+            this.panel        = this.GetComponent<RectTransform>();
+            this.canvasScaler = this.GetComponentInParent<CanvasScaler>();
 
             if (this.panel == null)
             {
@@ -53,8 +47,7 @@ namespace UIModule.Utilities.UIStuff
         {
             var safeArea = this.GetSafeArea();
 
-            if (safeArea != this.lastSafeArea)
-                this.ApplySafeArea(safeArea);
+            if (safeArea != this.lastSafeArea) this.ApplySafeArea(safeArea);
         }
 
         private Rect GetSafeArea()
@@ -67,16 +60,52 @@ namespace UIModule.Utilities.UIStuff
         {
             this.lastSafeArea = r;
 
-            var anchorMin = new Vector2();
-            var anchorMax = new Vector2();
-            
-            anchorMin.x = this.conformX && this.minX ? r.x / Screen.width : 0;
-            anchorMax.x = this.conformX && this.maxX ? (r.x + r.width) / Screen.width : 1;
-            anchorMin.y = this.conformY && this.minY ? r.y / Screen.height : 0;
-            anchorMax.y = this.conformY && this.maxY ? (r.y + r.height) / Screen.height : 1;
-            
-            this.panel.anchorMin =  anchorMin;
-            this.panel.anchorMax =  anchorMax;
+            // Ignore x-axis?
+            if (!this.conformX)
+            {
+                r.x     = 0;
+                r.width = Screen.width;
+            }
+
+            // Ignore y-axis?
+            if (!this.conformY)
+            {
+                r.y      = 0;
+                r.height = Screen.height;
+            }
+
+            // Convert safe area rectangle from absolute pixels to normalised anchor coordinates
+            var anchorMin = r.position;
+            var anchorMax = r.position + r.size;
+            anchorMin.x /= Screen.width;
+            anchorMin.y /= Screen.height;
+            anchorMax.x /= Screen.width;
+            anchorMax.y /= Screen.height;
+            if (this.stretch)
+            {
+                this.panel.anchorMin = anchorMin;
+                this.panel.anchorMax = anchorMax;
+                this.panel.sizeDelta = Vector2.zero;
+            }
+            else
+            {
+                // Assuming that the Screen match mode is Expand
+                this.panel.anchorMin = new((anchorMax.x + anchorMin.x) / 2, (anchorMax.y + anchorMin.y) / 2);
+                this.panel.anchorMax = new((anchorMax.x + anchorMin.x) / 2, (anchorMax.y + anchorMin.y) / 2);
+                var widthRatio          = anchorMax.x - anchorMin.x;
+                var heightRatio         = anchorMax.y - anchorMin.y;
+                var rectTransformSize   = this.canvasScaler.GetComponent<RectTransform>().rect.size;
+                var referenceResolution = this.canvasScaler.referenceResolution;
+
+                // all the screens smaller than the reference resolution are also set here
+                this.panel.sizeDelta = referenceResolution * new Vector2(widthRatio, heightRatio);
+
+                // TODO: calculate dynamically. this is just for portrait reference resolution
+                if (rectTransformSize.y > this.panel.sizeDelta.y)
+                {
+                    this.panel.sizeDelta = new(this.panel.sizeDelta.x, rectTransformSize.y * heightRatio);
+                }
+            }
 
             //Debug.LogFormat("New safe area applied to {0}: x={1}, y={2}, w={3}, h={4} on full extents w={5}, h={6}", name, r.x, r.y, r.width, r.height, Screen.width, Screen.height);
         }

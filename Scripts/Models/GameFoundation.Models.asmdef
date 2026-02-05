@@ -1,0 +1,7 @@
+{
+  "name": "GameFoundation.Models",
+  "references": [
+    "GameFoundation.UserData",
+    "UniT.Data"
+  ]
+}

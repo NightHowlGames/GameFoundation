@@ -88,3 +88,7 @@ _UpgradeReport_Files/
 Thumbs.db
 Desktop.ini
 .DS_Store
+/Plugins/Sirenix/Odin Inspector/Modules/Unity.Mathematics/
+/Plugins/Sirenix/Odin Inspector/Modules/Unity.Mathematics.meta
+/Plugins/Sirenix/Odin Inspector/Modules/Unity.Localization.meta
+/Plugins/Sirenix/Odin Inspector/Modules/Unity.Localization/

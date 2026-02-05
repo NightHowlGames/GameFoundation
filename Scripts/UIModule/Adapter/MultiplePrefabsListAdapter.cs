@@ -1,4 +1,4 @@
-namespace UIModule.Adapter
+namespace GameFoundation.Scripts.UIModule.Adapter
 {
     using System;
     using System.Collections.Generic;
@@ -6,29 +6,31 @@ namespace UIModule.Adapter
     using Com.ForbiddenByte.OSA.Core;
     using Com.ForbiddenByte.OSA.DataHelpers;
     using Cysharp.Threading.Tasks;
-    using GameFoundation.Scripts.AssetLibrary;
+    using GameFoundation.DI;
     using GameFoundation.Scripts.UIModule.MVP;
     using UnityEngine;
-    using Zenject;
 
     // There are 2 important callbacks you need to implement, apart from Start(): CreateViewsHolder() and UpdateViewsHolder()
     // See explanations below
-    public class MultiplePrefabsListAdapter<TModel, TView> : OSA<MultiplePrefabsParams, BaseItemViewsHolder>
+    public class MultiplePrefabsListAdapter<TModel, TView, TPresenter> : OSA<MultiplePrefabsParams, BaseItemViewsHolder>
         where TModel : MultiplePrefabsModel
         where TView : MonoBehaviour, IUIView
+        where TPresenter : BaseUIItemPresenter<TView, TModel>, IDisposable
     {
         // Helper that stores data and notifies the adapter when items count changes
         // Can be iterated and can also have its elements accessed by the [] operator
-        public           SimpleDataHelper<TModel>                              Models { get; private set; }
-        private          DiContainer                                           container;
-        private readonly Dictionary<TView, BaseUIItemPresenter<TView, TModel>> viewToPresenter  = new();
-        private readonly Dictionary<int, BaseUIItemPresenter<TView, TModel>>   indexToPresenter = new();
+        public           SimpleDataHelper<TModel>      Models { get; private set; }
+        private          IDependencyContainer          container;
+        private readonly Dictionary<TView, TPresenter> viewToPresenter  = new();
+        private readonly Dictionary<int, TPresenter>   indexToPresenter = new();
 
         #region OSA implementation
+
         protected override void Awake()
         {
             base.Awake();
-            this.Models = new SimpleDataHelper<TModel>(this);
+            this.container = this.GetCurrentContainer();
+            this.Models    = new(this);
         }
 
         // This is called initially, as many times as needed to fill the viewport,
@@ -39,7 +41,6 @@ namespace UIModule.Adapter
         {
             var vh = new BaseItemViewsHolder();
             vh.Init(this.Parameters.ItemPrefabs[this.Models[itemIndex].PrefabName], this.Parameters.Content, itemIndex);
-
             return vh;
         }
 
@@ -61,8 +62,9 @@ namespace UIModule.Adapter
             }
             else
             {
-                presenter = this.viewToPresenter[view] = this.container.Instantiate(this.Models[index].PresenterType) as BaseUIItemPresenter<TView, TModel>;
+                presenter = this.viewToPresenter[view] = this.container.Instantiate(this.Models[index].PresenterType) as TPresenter;
                 presenter.SetView(view);
+                presenter.OnViewReady();
             }
 
             this.indexToPresenter[index] = presenter;
@@ -70,7 +72,11 @@ namespace UIModule.Adapter
             presenter.BindData(model);
         }
 
-        protected override bool IsRecyclable(BaseItemViewsHolder vh, int itemIndex, double _) { return this.Models[vh.ItemIndex].PresenterType == this.Models[itemIndex].PresenterType; }
+        protected override bool IsRecyclable(BaseItemViewsHolder vh, int itemIndex, double _)
+        {
+            return this.Models[vh.ItemIndex].PresenterType == this.Models[itemIndex].PresenterType;
+        }
+
         #endregion
 
         // These are common data manipulation methods
@@ -78,30 +84,11 @@ namespace UIModule.Adapter
         // The adapter needs to be notified of any change that occurs in the data list. Methods for each
         // case are provided: Refresh, ResetItems, InsertItems, RemoveItems
 
-        public virtual async UniTask InitItemAdapter(List<TModel> models, DiContainer diContainer)
+        public async UniTask InitItemAdapter(List<TModel> models)
         {
-            this.container = diContainer;
-
-            if (!this.IsInitialized)
-            {
-                await UniTask.WaitUntil(() => this.IsInitialized);
-            }
-
-            // Try load all prefabs that are not already in the dictionary
-            foreach (var model in models)
-            {
-                if (!this.Parameters.ItemPrefabs.ContainsKey(model.PrefabName))
-                {
-                    var itemPrefab   = await diContainer.Resolve<IGameAssets>().LoadAssetAsync<GameObject>(model.PrefabName);
-                    var itemPrefabRt = itemPrefab.GetComponent<RectTransform>();
-                    this.Parameters.ItemPrefabs[model.PrefabName] = itemPrefabRt;
-                }
-            }
-            this.Parameters.UpdateItemSizes();
-
+            await UniTask.WaitUntil(() => this.IsInitialized);
             this.ResetItems(0);
             this.Models.ResetItems(models);
-
             if (this.Parameters.PrefabControlsDefaultItemSize)
             {
                 for (var i = 0; i < models.Count; ++i)
@@ -111,9 +98,15 @@ namespace UIModule.Adapter
             }
         }
 
-        public BaseUIItemPresenter<TView, TModel> GetPresenterAtIndex(int index) { return this.indexToPresenter[index]; }
+        public TPresenter GetPresenterAtIndex(int index)
+        {
+            return this.indexToPresenter[index];
+        }
 
-        public List<BaseUIItemPresenter<TView, TModel>> GetPresenters() { return this.indexToPresenter.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList(); }
+        public List<TPresenter> GetPresenters()
+        {
+            return this.indexToPresenter.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList();
+        }
     }
 
     [Serializable]
@@ -122,31 +115,23 @@ namespace UIModule.Adapter
         [SerializeField] private List<RectTransform> itemPrefabs;
         [SerializeField] private bool                prefabControlsDefaultItemSize = true;
 
-        public Dictionary<string, RectTransform> ItemPrefabs { get; set; } = new();
-        public Dictionary<string, float>         ItemSizes   { get; }      = new();
+        public Dictionary<string, RectTransform> ItemPrefabs { get; } = new();
+        public Dictionary<string, float>         ItemSizes   { get; } = new();
 
         public bool PrefabControlsDefaultItemSize => this.prefabControlsDefaultItemSize;
 
         public override void InitIfNeeded(IOSA iAdapter)
         {
             base.InitIfNeeded(iAdapter);
-
-            if (this.itemPrefabs != null)
-            {
-                ItemPrefabs = this.itemPrefabs.ToDictionary(prefab => prefab.name, prefab => prefab);
-                UpdateItemSizes();
-            }
-        }
-
-        public void UpdateItemSizes()
-        {
-            if (!this.prefabControlsDefaultItemSize || ItemPrefabs == null || ItemPrefabs.Count == 0) return;
-
-            foreach (var itemPrefab in ItemPrefabs.Values)
+            foreach (var itemPrefab in this.itemPrefabs)
             {
                 this.AssertValidWidthHeight(itemPrefab);
-                this.ItemSizes[itemPrefab.name] = IsHorizontal ? itemPrefab.rect.width : itemPrefab.rect.height;
-                this.DefaultItemSize            = Mathf.Max(this.DefaultItemSize, this.ItemSizes[itemPrefab.name]);
+                this.ItemPrefabs[itemPrefab.name] = itemPrefab;
+                if (this.prefabControlsDefaultItemSize)
+                {
+                    this.ItemSizes[itemPrefab.name] = itemPrefab.rect.height;
+                    this.DefaultItemSize            = Mathf.Max(this.DefaultItemSize, itemPrefab.rect.height);
+                }
             }
         }
     }

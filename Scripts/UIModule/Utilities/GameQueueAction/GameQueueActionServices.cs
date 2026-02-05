@@ -1,41 +1,49 @@
 namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
 {
     using System.Collections.Generic;
+    using GameFoundation.DI;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
     using GameFoundation.Scripts.Utilities.Extension;
-    using UniRx;
-    using Zenject;
+    using R3;
+    using UnityEngine.Scripting;
 
-    public class GameQueueActionServices
+    public class GameQueueActionServices : IInitializable
     {
-        public static GameQueueActionServices Instance { get; private set; }
+        private readonly IScreenManager screenManager;
 
-        private          IScreenManager screenManager;
-        private readonly SignalBus      signalBus;
+        private readonly Dictionary<string, List<IGameQueueAction>> queueActions           = new();
+        private readonly HashSet<string>                            trackUnCompleteActions = new();
 
+        private bool   isDequeuing;
+        private string curLocation;
 
-        private Dictionary<string, List<IGameQueueAction>> queueActions           = new Dictionary<string, List<IGameQueueAction>>();
-        private HashSet<string>                            trackUnCompleteActions = new HashSet<string>();
-        private bool                                       isDequeuing;
-        private string                                     curLocation;
-
-        public GameQueueActionServices(IScreenManager screenManager, SignalBus signalBus)
+        [Preserve]
+        public GameQueueActionServices(IScreenManager screenManager)
         {
             this.screenManager = screenManager;
-            this.signalBus     = signalBus;
-            Instance           = this;
+        }
+
+        public void Initialize()
+        {
             this.screenManager.CurrentActiveScreen.Subscribe(this.OnStartAtLocation);
         }
+
         private void OnStartAtLocation(IScreenPresenter currentScreen)
         {
             this.curLocation = currentScreen == null ? string.Empty : currentScreen.ScreenId;
-            this.TryDequeue(this.curLocation, true);
+            this.isDequeuing = false;
+            if (!this.queueActions.TryGetValue(this.curLocation, out var listAction) || listAction.Count <= 0) return;
+            this.isDequeuing = true;
+            Observable.TimerFrame(1, UnityFrameProvider.PostLateUpdate).ObserveOnMainThread().Subscribe(l =>
+            {
+                this.Dequeue(listAction);
+            });
         }
 
         public bool Insert(string location, IGameQueueAction action, int index = -1)
         {
-//        Debug.Log($"<color=red> GameQueueActionServices: add action {action.actionId} at {location}, index = {index} </color>");
+            //        Debug.Log($"<color=red> GameQueueActionServices: add action {action.actionId} at {location}, index = {index} </color>");
 
             var isAdded = false;
             if (this.queueActions.TryGetValue(location, out var listAction))
@@ -47,7 +55,10 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
                     if (index >= 0 && index != curIndex)
                     {
                         listAction.RemoveAt(curIndex);
-                        listAction.TryInsert(action, index);
+                        if (index < listAction.Count)
+                            listAction.Insert(index, action);
+                        else
+                            listAction.Add(action);
                     }
                     else
                     {
@@ -57,13 +68,16 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
                 else
                 {
                     // add new
-                    listAction.TryInsert(action, index);
+                    if (index >= 0 && index < listAction.Count)
+                        listAction.Insert(index, action);
+                    else
+                        listAction.Add(action);
                     isAdded = true;
                 }
             }
             else
             {
-                this.queueActions.Add(location, new List<IGameQueueAction> { action });
+                this.queueActions.Add(location, new() { action });
                 isAdded = true;
             }
 
@@ -71,18 +85,21 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
             {
                 this.trackUnCompleteActions.Add(action.actionId);
 
-                if (this.CheckLocation(location) && !this.isDequeuing)
-                {
-                    this.TryDequeue(location);
-                }
+                if (location == this.curLocation && !this.isDequeuing) this.OnStartAtLocation(this.screenManager.CurrentActiveScreen.Value);
             }
 
             return isAdded;
         }
 
-        public void Append(string location, IGameQueueAction action) { this.Insert(location, action); }
+        public void Append(string location, IGameQueueAction action)
+        {
+            this.Insert(location, action);
+        }
 
-        public void Append(IGameQueueAction action) { this.Append(action.location, action); }
+        public void Append(IGameQueueAction action)
+        {
+            this.Append(action.location, action);
+        }
 
         public bool Remove(IGameQueueAction action)
         {
@@ -102,75 +119,51 @@ namespace GameFoundation.Scripts.UIModule.Utilities.GameQueueAction
         public void UpdateIndexInQueue(IGameQueueAction action, int index)
         {
             if (this.queueActions.TryGetValue(action.location, out var listAction))
-            {
                 if (this.Remove(action))
                 {
                     if (index >= 0 && index < listAction.Count)
-                    {
                         listAction.Insert(index, action);
-                    }
                     else
-                    {
                         listAction.Add(action);
-                    }
                 }
-            }
-        }
-        
-        private void TryDequeue(string location, bool isDelay = false)
-        {
-            this.isDequeuing = false;
-            if (!this.queueActions.TryGetValue(location, out var listAction) || listAction.Count <= 0)
-            {
-                if (!this.queueActions.TryGetValue("", out listAction) || listAction.Count <= 0)
-                    return;
-            }
-
-            this.isDequeuing = true;
-            if (isDelay)
-            {
-                Observable.TimerFrame(1, FrameCountType.EndOfFrame).ObserveOnMainThread().Subscribe(l => { this.Dequeue(listAction); });
-            }
-            else
-            {
-                this.Dequeue(listAction);
-            }
         }
 
         private void Dequeue(List<IGameQueueAction> listAction)
         {
-            //Debug.Log($"<color=red> GameQueueActionServices: dequeue action, list action = {listAction.ToString2(action => action.actionId)}</color>");
-            foreach (var gameQueueAction in listAction)
-            {
-                if (gameQueueAction.isExecuting) break;
-                if (this.CheckLocation(gameQueueAction.location) && this.CheckAllDependActionComplete(gameQueueAction))
+            if (listAction.Count > 0)
+                //Debug.Log($"<color=red> GameQueueActionServices: dequeue action, list action = {listAction.ToString2(action => action.actionId)}</color>");
+                foreach (var gameQueueAction in listAction)
                 {
-                    //Debug.Log($"<color=red> GameQueueActionServices: dequeue action {gameQueueAction.actionId} at {curLocation}</color>");
-                    gameQueueAction.OnComplete += action =>
+                    if (gameQueueAction.isExecuting) break;
+                    if (this.curLocation == gameQueueAction.location && this.CheckAllDependActionComplete(gameQueueAction))
                     {
-                        this.trackUnCompleteActions.Remove(action.actionId);
-                        listAction.Remove(action);
-                        this.TryDequeue(this.curLocation);
-                    };
-                    gameQueueAction.OnStart += action =>
-                    {
-                        //Debug.Log($"<color=red> GameQueueActionServices: remove action {action.actionId}</color>");
-                        listAction.Remove(action);
-                    };
-                    gameQueueAction.Execute();
-                    break;
+                        //Debug.Log($"<color=red> GameQueueActionServices: dequeue action {gameQueueAction.actionId} at {curLocation}</color>");
+                        gameQueueAction.OnComplete += action =>
+                        {
+                            this.trackUnCompleteActions.Remove(action.actionId);
+                            listAction.Remove(action);
+                            this.Dequeue(listAction);
+                        };
+                        gameQueueAction.OnStart += action =>
+                        {
+                            //Debug.Log($"<color=red> GameQueueActionServices: remove action {action.actionId}</color>");
+                            listAction.Remove(action);
+                        };
+                        gameQueueAction.Execute();
+                        break;
+                    }
                 }
-            }
+            else
+                //            Debug.Log($"<color=red> GameQueueActionServices: empty queue at {curLocation}</color>");
+                this.isDequeuing = false;
         }
-        private bool CheckLocation(string location) { return this.curLocation == location || location == ""; }
 
         private bool CheckAllDependActionComplete(IGameQueueAction action)
         {
             if (action.dependActions == null || action.dependActions.Length <= 0) return true;
             foreach (var dependAction in action.dependActions)
-            {
-                if (this.trackUnCompleteActions.Contains(dependAction)) return false;
-            }
+                if (this.trackUnCompleteActions.Contains(dependAction))
+                    return false;
 
             return true;
         }

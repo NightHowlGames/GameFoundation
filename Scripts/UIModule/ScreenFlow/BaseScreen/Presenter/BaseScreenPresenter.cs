@@ -1,71 +1,74 @@
 namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
 {
-    using System.Threading.Tasks;
+    using System;
+    using System.Reflection;
     using Cysharp.Threading.Tasks;
+    using GameFoundation.DI;
     using GameFoundation.Scripts.UIModule.MVP;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
-    using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
     using GameFoundation.Scripts.UIModule.ScreenFlow.Signals;
-    using GameFoundation.Scripts.Utilities.LogService;
-    using Sirenix.OdinInspector;
+    using GameFoundation.Signals;
+    using UniT.Logging;
+    using UniT.ResourceManagement;
     using UnityEngine;
-    using Zenject;
+    using ILogger = UniT.Logging.ILogger;
 
     public abstract class BaseScreenPresenter<TView> : IScreenPresenter where TView : IScreenView
     {
-        [ShowInInspector] public string       ScreenId        { get; private set; }
-        public virtual           bool         IsClosePrevious { get; protected set; } = false;
-        [ShowInInspector] public ScreenStatus ScreenStatus    { get; protected set; } = ScreenStatus.Closed;
+        protected SignalBus SignalBus { get; }
+        protected ILogger   Logger    { get; }
 
-        public             TView     View;
-        protected readonly SignalBus SignalBus;
+        protected BaseScreenPresenter(SignalBus signalBus, ILoggerManager loggerManager)
+        {
+            this.SignalBus = signalBus;
+            this.Logger    = loggerManager.GetLogger(this);
+        }
 
-        public BaseScreenPresenter(SignalBus signalBus) { this.SignalBus = signalBus; }
+        public         TView        View            { get; private set; }
+        public         string       ScreenId        { get; private set; }
+        public virtual bool         IsClosePrevious { get; protected set; } = false;
+        public         ScreenStatus ScreenStatus    { get; protected set; } = ScreenStatus.Closed;
 
         #region Implement IUIPresenter
-
-        [Inject] private ILogService logger;
-
-        [Inject]
-        public virtual void Initialize() { }
 
         public async void SetView(IUIView viewInstance)
         {
             this.View     = (TView)viewInstance;
-            this.ScreenId = $"{SceneDirector.CurrentSceneName}/{typeof(TView).Name}";
-            if (this.View.IsReadyToUse)
-            {
-                this.OnViewReady();
-            }
-            else
-            {
-                await UniTask.WaitUntil(() => this.View.IsReadyToUse);
-                this.OnViewReady();
-            }
+            this.ScreenId = ScreenHelper.GetScreenId<TView>();
+            if (!this.View.IsReadyToUse) await UniTask.WaitUntil(this, state => state.View.IsReadyToUse);
+            this.OnViewReady();
         }
 
         public void SetViewParent(Transform parent)
         {
             if (parent == null)
             {
-                this.logger.LogWithColor(parent.name + "is null", Color.green);
+                this.Logger.Error(parent.name + "is null");
                 return;
             }
 
             if (this.View.Equals(null)) return;
-            this.View.RectTransform.SetParent(parent, false);
+            this.View.RectTransform.SetParent(parent);
         }
-        public Transform GetViewParent()  { return this.View.RectTransform.parent; }
+
+        public Transform GetViewParent()
+        {
+            return this.View.RectTransform.parent;
+        }
+
         public Transform CurrentTransform => this.View.RectTransform;
 
         public abstract UniTask BindData();
 
         public virtual async UniTask OpenViewAsync()
         {
-            // Always fill data for screen
+            if (this.ScreenStatus == ScreenStatus.Opened)
+            {
+                this.Dispose();
+                await this.BindData();
+                return;
+            }
             await this.BindData();
-
-            if (this.ScreenStatus == ScreenStatus.Opened) return;
             this.ScreenStatus = ScreenStatus.Opened;
             this.SignalBus.Fire(new ScreenShowSignal() { ScreenPresenter = this });
             await this.View.Open();
@@ -80,16 +83,20 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
             this.Dispose();
         }
 
-        public virtual async void CloseView() { await this.CloseViewAsync(); }
+        public virtual void CloseView()
+        {
+            this.CloseViewAsync().Forget();
+        }
 
         public virtual void HideView()
         {
-            if (this.ScreenStatus == ScreenStatus.Hide) return;
+            if (this.ScreenStatus is ScreenStatus.Hide or ScreenStatus.Destroyed) return;
             this.ScreenStatus = ScreenStatus.Hide;
             this.View.Hide();
             // this.SignalBus.Fire(new ScreenHideSignal() { ScreenPresenter = this }); // Active this signal later, when need
             this.Dispose();
         }
+
         public virtual void DestroyView()
         {
             if (this.ScreenStatus == ScreenStatus.Destroyed) return;
@@ -97,49 +104,52 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
             if (this.View.Equals(null)) return;
             this.Dispose();
             this.View.DestroySelf();
+            var key = this.GetType().GetCustomAttribute<ScreenInfoAttribute>().AddressableScreenPath;
+            this.GetCurrentContainer().Resolve<IAssetsManager>().Unload(key);
         }
 
-        public virtual void OnOverlap()      { }
-        public         int  ViewSiblingIndex { get => this.View.RectTransform.GetSiblingIndex(); set => this.View.RectTransform.SetSiblingIndex(value); }
+        public virtual void OnOverlap(bool isOverlap)
+        {
+            this.Logger.Info($"OnOverLap: {isOverlap} - {this.ScreenId}");
+        }
+
+        public int ViewSiblingIndex { get => this.View.RectTransform.GetSiblingIndex(); set => this.View.RectTransform.SetSiblingIndex(value); }
 
         #endregion
 
+        protected virtual void OnViewReady()
+        {
+            this.View.ViewDidDestroy += this.OnViewDestroyed;
+        }
 
-        protected virtual void OnViewReady()     { this.View.ViewDidDestroy += this.OnViewDestroyed; }
-        protected virtual void OnViewDestroyed() { this.SignalBus.Fire(new ScreenSelfDestroyedSignal() { ScreenPresenter = this }); }
+        protected virtual void OnViewDestroyed()
+        {
+            this.SignalBus.Fire(new ScreenSelfDestroyedSignal() { ScreenPresenter = this });
+        }
 
-        public virtual void Dispose() { }
+        public virtual void Dispose()
+        {
+        }
     }
 
     public abstract class BaseScreenPresenter<TView, TModel> : BaseScreenPresenter<TView>, IScreenPresenter<TModel> where TView : IScreenView
     {
-        protected readonly ILogService Logger;
-        protected          TModel      Model;
-        protected BaseScreenPresenter(SignalBus signalBus, ILogService logger) : base(signalBus) { this.Logger = logger; }
+        protected TModel Model { get; private set; }
 
-        public override async UniTask OpenViewAsync()
+        protected BaseScreenPresenter(SignalBus signalBus, ILoggerManager loggerManager) : base(signalBus, loggerManager)
         {
-            if (this.Model != null)
-            {
-                await this.BindData(this.Model);
-            }
-            else
-            {
-                this.Logger.Warning($"{this.GetType().Name} don't have Model!!!");
-            }
-            await base.OpenViewAsync();
         }
+
         public virtual async UniTask OpenViewAsync(TModel model)
         {
-            if (model != null)
-            {
-                this.Model = model;
-            }
-
+            this.Model = model ?? throw new ArgumentNullException();
             await this.OpenViewAsync();
         }
 
-        public sealed override UniTask BindData() { return UniTask.CompletedTask; }
+        public sealed override UniTask BindData()
+        {
+            return this.BindData(this.Model);
+        }
 
         public abstract UniTask BindData(TModel screenModel);
     }

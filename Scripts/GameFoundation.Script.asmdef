@@ -1,25 +1,33 @@
 {
-    "name": "GameFoundation.Script",
-    "rootNamespace": "",
-    "references": [
-        "GameFoundation.Utilities",
-        "GameFoundation.AssetLibrary",
-        "GameFoundation.UIModule",
-        "I2Localization.Scripts",
-        "Zenject-Source",
-        "Zenject-Signals",
-        "UniTask",
-        "GameFoundation.GameConfigs",
-        "GameFoundation.SoundManager",
-        "GameFoundation.DataManager"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+  "name": "GameFoundation.Script",
+  "rootNamespace": "GameFoundation",
+  "references": [
+    "GameFoundation.Utilities",
+    "GameFoundation.BlueprintFlow",
+    "GameFoundation.Models",
+    "GameFoundation.UIModule",
+    "GameFoundation.Signals",
+    "GameFoundation.DI",
+    "UniT.Logging.DI",
+    "UniT.ResourceManagement.DI",
+    "UniT.Pooling.DI",
+    "UniT.Extensions",
+    "MasterAAASound.Scripts",
+    "I2Localization.Scripts",
+    "Zenject",
+    "VContainer",
+    "GameFoundation.UserData"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.svermeulen.extenject",
+      "expression": "",
+      "define": "GDK_ZENJECT"
+    },
+    {
+      "name": "jp.hadashikick.vcontainer",
+      "expression": "",
+      "define": "GDK_VCONTAINER"
+    }
+  ]
 }

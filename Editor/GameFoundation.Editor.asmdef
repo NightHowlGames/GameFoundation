@@ -1,25 +1,25 @@
 {
-    "name": "GameFoundation.Editor",
-    "rootNamespace": "",
-    "references": [
-        "GameFoundation.UIModule",
-        "GameFoundation.Network.Config",
-        "GameFoundation.Utilities",
-        "Unity.Addressables",
-        "Unity.ResourceManager",
-        "UniTask.Addressables",
-        "UniTask",
-        "GameFoundation.GameConfigs"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+  "name": "GameFoundation.Editor",
+  "rootNamespace": "",
+  "references": [
+    "GameFoundation.UIModule",
+    "GameFoundation.Models",
+    "GameFoundation.Network.Config",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "UniTask.Addressables",
+    "UniTask",
+    "UniT.Extensions"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
 }
