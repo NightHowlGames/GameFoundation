@@ -1,30 +1,7 @@
 ﻿#nullable enable
 namespace GameFoundation.DI
 {
-    #if GDK_ZENJECT
-    using UnityEngine;
-    using Zenject;
-
-    public static class DIExtensions
-    {
-        private static SceneContext? CurrentSceneContext;
-
-        /// <summary>
-        ///     Get current scene <see cref="IDependencyContainer"/>
-        /// </summary>
-        public static IDependencyContainer GetCurrentContainer()
-        {
-            if (CurrentSceneContext == null)
-            {
-                CurrentSceneContext = Object.FindObjectOfType<SceneContext>();
-            }
-            return CurrentSceneContext.Container.Resolve<IDependencyContainer>();
-        }
-
-        /// <inheritdoc cref="GetCurrentContainer()"/>
-        public static IDependencyContainer GetCurrentContainer(this object _) => GetCurrentContainer();
-    }
-    #elif GDK_VCONTAINER
+    #if GDK_VCONTAINER
     using UniT.Extensions;
     using VContainer;
     using Object = UnityEngine.Object;

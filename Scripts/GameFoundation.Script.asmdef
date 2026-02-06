@@ -14,16 +14,10 @@
     "UniT.Extensions",
     "MasterAAASound.Scripts",
     "I2Localization.Scripts",
-    "Zenject",
     "VContainer",
     "GameFoundation.UserData"
   ],
   "versionDefines": [
-    {
-      "name": "com.svermeulen.extenject",
-      "expression": "",
-      "define": "GDK_ZENJECT"
-    },
     {
       "name": "jp.hadashikick.vcontainer",
       "expression": "",

@@ -13,7 +13,6 @@
     "UniTask.Addressables",
     "Unity.ResourceManager",
     "Unity.Addressables",
-    "Zenject",
     "VContainer",
     "BuildScript.Runtime",
     "DOTween.Modules",
@@ -25,11 +24,6 @@
     "UniT.Data"
   ],
   "versionDefines": [
-    {
-      "name": "com.svermeulen.extenject",
-      "expression": "",
-      "define": "GDK_ZENJECT"
-    },
     {
       "name": "jp.hadashikick.vcontainer",
       "expression": "",

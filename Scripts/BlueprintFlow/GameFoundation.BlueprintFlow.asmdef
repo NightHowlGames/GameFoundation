@@ -7,7 +7,6 @@
     "GameFoundation.Models",
     "GameFoundation.Utilities",
     "UniTask",
-    "Zenject",
     "VContainer",
     "UniT.Extensions",
     "UniT.Logging",
@@ -19,11 +18,6 @@
       "name": "com.gdk.network",
       "expression": "",
       "define": "GDK_NETWORK_ENABLE"
-    },
-    {
-      "name": "com.svermeulen.extenject",
-      "expression": "",
-      "define": "GDK_ZENJECT"
     },
     {
       "name": "jp.hadashikick.vcontainer",
