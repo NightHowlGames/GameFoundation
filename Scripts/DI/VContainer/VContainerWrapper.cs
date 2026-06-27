@@ -10,6 +10,7 @@ namespace GameFoundation.DI
     using System.Linq;
     using UnityEngine;
     using VContainer;
+    using VContainer.Internal;
     using VContainer.Unity;
     using PreserveAttribute = UnityEngine.Scripting.PreserveAttribute;
 
@@ -55,12 +56,12 @@ namespace GameFoundation.DI
 
         object IDependencyContainer.Instantiate(Type type, params object[] @params)
         {
-            return this.container.Instantiate(type, @params);
+            return InjectorCache.GetOrBuild(type).CreateInstance(this.container, @params.Select(param => new Parameter(param)).ToArray());
         }
 
         T IDependencyContainer.Instantiate<T>(params object[] @params)
         {
-            return this.container.Instantiate<T>(@params);
+            return (T)((IDependencyContainer)this).Instantiate(typeof(T), @params);
         }
 
         void IDependencyContainer.Inject(object instance)
@@ -76,6 +77,26 @@ namespace GameFoundation.DI
         GameObject IDependencyContainer.InstantiatePrefab(GameObject prefab)
         {
             return this.container.Instantiate(prefab);
+        }
+
+        private sealed class Parameter : IInjectParameter
+        {
+            private readonly object value;
+
+            public Parameter(object value)
+            {
+                this.value = value;
+            }
+
+            public bool Match(Type parameterType, string parameterName)
+            {
+                return parameterType.IsInstanceOfType(this.value);
+            }
+
+            public object GetValue(IObjectResolver resolver)
+            {
+                return this.value;
+            }
         }
     }
 }

@@ -2,8 +2,7 @@
   "name": "GameFoundation.DI",
   "rootNamespace": "GameFoundation.DI",
   "references": [
-    "VContainer",
-    "UniT.Extensions"
+    "VContainer"
   ],
   "versionDefines": [
     {

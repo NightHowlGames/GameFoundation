@@ -2,7 +2,8 @@
 namespace GameFoundation.DI
 {
     #if GDK_VCONTAINER
-    using UniT.Extensions;
+    using System;
+    using System.Linq;
     using VContainer;
     using Object = UnityEngine.Object;
 
@@ -31,7 +32,16 @@ namespace GameFoundation.DI
 
         public static void RegisterDerivedTypes<T>(this IContainerBuilder builder, Lifetime lifetime = Lifetime.Singleton)
         {
-            typeof(T).GetDerivedTypes().ForEach(type => builder.Register(type, lifetime));
+            var baseType = typeof(T);
+            var derivedTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(assembly => !assembly.IsDynamic)
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => !type.IsAbstract && baseType.IsAssignableFrom(type));
+
+            foreach (var type in derivedTypes)
+            {
+                builder.Register(type, lifetime);
+            }
         }
     }
     #else
