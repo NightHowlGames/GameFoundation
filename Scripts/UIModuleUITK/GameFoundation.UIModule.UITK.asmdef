@@ -1,0 +1,17 @@
+{
+  "name": "GameFoundation.UIModule.UITK",
+  "rootNamespace": "GameFoundation.UIModule.UITK",
+  "references": [
+    "GameFoundation.UIModule",
+    "UniTask"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
