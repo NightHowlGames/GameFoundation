@@ -6,9 +6,16 @@ namespace GameFoundation.UIModule.UITK.Tests
     using System.Threading;
     using Cysharp.Threading.Tasks;
     using GameFoundation.DI;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.UITK.Presenter;
+    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Scripts.Utilities;
+    using GameFoundation.Signals;
+    using UniT.Logging;
     using UniT.ResourceManagement;
     using UnityEngine;
+    using UnityEngine.Scripting;
+    using UnityEngine.UIElements;
     using VContainer;
     using Object = UnityEngine.Object;
 
@@ -120,6 +127,38 @@ namespace GameFoundation.UIModule.UITK.Tests
         public void PauseEverything() { }
 
         public void ResumeEverything() { }
+    }
+
+    /// <summary>
+    /// A second, minimal UI Toolkit screen, so a test can have TWO screens open at once.
+    /// </summary>
+    /// <remarks>
+    /// The back-navigation flow branches on how deep the screen stack is, and one screen is
+    /// not a stack. Opening <c>NotificationPopupUIToolkitPresenter</c> twice does not help:
+    /// <c>ScreenManager</c> keys loaded presenters by type, so the second open returns the
+    /// same instance and the count stays at one. A second TYPE is the only way to get to
+    /// two, and it exists here rather than in the package because nothing ships it.
+    ///
+    /// <para>It clones whatever <c>VisualTreeAsset</c> the stub assets manager serves for
+    /// <c>UITestSecondScreen</c>. What it draws is irrelevant; that it occupies a slot in
+    /// <c>activeScreens</c> is the whole point.</para>
+    /// </remarks>
+    public sealed class SecondUIToolkitView : BaseUIToolkitView
+    {
+        public SecondUIToolkitView(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
+        {
+        }
+    }
+
+    [ScreenInfo("UITestSecondScreen")]
+    public sealed class SecondUIToolkitPresenter : BaseUIToolkitScreenPresenter<SecondUIToolkitView>
+    {
+        [UnityEngine.Scripting.Preserve]
+        public SecondUIToolkitPresenter(SignalBus signalBus, ILoggerManager loggerManager) : base(signalBus, loggerManager)
+        {
+        }
+
+        public override UniTask BindData() => UniTask.CompletedTask;
     }
 
     /// <summary>

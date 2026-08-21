@@ -25,6 +25,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         #region UITookit element
 
         private DropdownField dropdownSettingType;
+        private DropdownField dropdownSettingBackend;
         private Toggle        toggleSettingHasModel;
         private TextField     inputSettingName;
         private TextField     inputSettingScriptPath;
@@ -105,6 +106,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
             #region init element reference
 
             this.dropdownSettingType      = root.Q<DropdownField>("dropdownSettingType");
+            this.dropdownSettingBackend   = root.Q<DropdownField>("dropdownSettingBackend");
             this.toggleSettingHasModel    = root.Q<Toggle>("toggleSettingHasModel");
             this.inputSettingName         = root.Q<TextField>("inputSettingName");
             this.inputSettingScriptPath   = root.Q<TextField>("inputSettingScriptPath");
@@ -120,6 +122,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
             #endregion
 
             this.InitViewTypeSetting();
+            this.InitViewBackendSetting();
             this.InitViewNameSetting();
             this.InitViewPathSetting(this.inputSettingScriptPath, this.btnSettingScriptLocation);
             this.InitViewPathSetting(this.inputSettingPrefabPath, this.btnSettingPrefabLocation);
@@ -208,6 +211,123 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
             return true;
         }
 
+        /// <summary>Writes the starter UXML next to where a uGUI view's prefab would go.</summary>
+        /// <remarks>
+        /// Takes a project-relative path — <c>Assets/...</c> — unlike
+        /// <see cref="TryGenerateScript"/>, which takes an absolute one, because the caller
+        /// already has the project-relative prefab path and <c>ImportAsset</c> wants that
+        /// form anyway.
+        /// </remarks>
+        private static bool TryGenerateUxml(string projectRelativeUxmlPath, string content)
+        {
+            var absolutePath = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, projectRelativeUxmlPath);
+
+            if (File.Exists(absolutePath))
+            {
+                Debug.LogError(LOG_TAG + "File Exist! " + absolutePath);
+
+                return false;
+            }
+
+            var directoryPath = Path.GetDirectoryName(absolutePath);
+
+            if (!string.IsNullOrEmpty(directoryPath) && !Directory.Exists(directoryPath))
+                try
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
+                catch
+                {
+                    Debug.LogError(LOG_TAG + "Could not create directory: " + directoryPath);
+
+                    return false;
+                }
+
+            try
+            {
+                File.WriteAllText(absolutePath, content);
+            }
+            catch
+            {
+                Debug.LogError(LOG_TAG + "Could not create file: " + absolutePath);
+
+                return false;
+            }
+
+            AssetDatabase.ImportAsset(projectRelativeUxmlPath);
+
+            return true;
+        }
+
+        /// <summary>Picks the C# template for a (type, backend, has-model) combination.</summary>
+        /// <remarks>
+        /// Public and static so the template matrix can be asserted from a test without an
+        /// EditorWindow: every one of these ten templates is a string that has to compile,
+        /// and the previous set did not.
+        /// </remarks>
+        public static string SelectScriptTemplate(ViewType type, ViewBackend backend, bool hasModel)
+        {
+            // An item is always modelled — the wizard forces the toggle on for it — so the
+            // hasModel flag is deliberately not consulted in the Item branches.
+            return backend switch
+            {
+                ViewBackend.UGUI => type switch
+                {
+                    ViewType.Item   => ITEM_VIEW_TEMPLATE,
+                    ViewType.Popup  => hasModel ? POPUP_VIEW_TEMPLATE : POPUP_VIEW_NON_MODEL_TEMPLATE,
+                    ViewType.Screen => hasModel ? SCREEN_VIEW_TEMPLATE : SCREEN_VIEW_NON_MODEL_TEMPLATE,
+                    _               => throw new ArgumentOutOfRangeException(nameof(type), type, null),
+                },
+                ViewBackend.UIToolkit => type switch
+                {
+                    ViewType.Item   => ITEM_VIEW_UITK_TEMPLATE,
+                    ViewType.Popup  => hasModel ? POPUP_VIEW_UITK_TEMPLATE : POPUP_VIEW_UITK_NON_MODEL_TEMPLATE,
+                    ViewType.Screen => hasModel ? SCREEN_VIEW_UITK_TEMPLATE : SCREEN_VIEW_UITK_NON_MODEL_TEMPLATE,
+                    _               => throw new ArgumentOutOfRangeException(nameof(type), type, null),
+                },
+                _ => throw new ArgumentOutOfRangeException(nameof(backend), backend, null),
+            };
+        }
+
+        /// <summary>Picks the starter UXML for a view type. UI Toolkit only.</summary>
+        public static string SelectUxmlTemplate(ViewType type)
+        {
+            return type switch
+            {
+                ViewType.Item   => ITEM_UXML_TEMPLATE,
+                ViewType.Popup  => POPUP_UXML_TEMPLATE,
+                ViewType.Screen => SCREEN_UXML_TEMPLATE,
+                _               => throw new ArgumentOutOfRangeException(nameof(type), type, null),
+            };
+        }
+
+        /// <summary>
+        /// <c>ShopPopupView</c> -> <c>shop-popup-view</c>: the naming UXML and USS use.
+        /// </summary>
+        public static string ToKebabCase(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+
+            var builder = new System.Text.StringBuilder(name.Length + 8);
+
+            for (var i = 0; i < name.Length; ++i)
+            {
+                var c = name[i];
+
+                if (char.IsUpper(c))
+                {
+                    if (i > 0) builder.Append('-');
+                    builder.Append(char.ToLowerInvariant(c));
+                }
+                else
+                {
+                    builder.Append(c);
+                }
+            }
+
+            return builder.ToString();
+        }
+
         #endregion
 
         #region Init GUI Element Action
@@ -223,13 +343,14 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
                     return;
                 }
 
-                var sTemplate = type switch
+                if (!Enum.TryParse(this.dropdownSettingBackend.value, out ViewBackend backend))
                 {
-                    ViewType.Item   => ITEM_VIEW_TEMPLATE,
-                    ViewType.Popup  => this.toggleSettingHasModel.value ? POPUP_VIEW_TEMPLATE : POPUP_VIEW_NON_MODEL_TEMPLATE,
-                    ViewType.Screen => this.toggleSettingHasModel.value ? SCREEN_VIEW_TEMPLATE : SCREEN_VIEW_NON_MODEL_TEMPLATE,
-                    _               => throw new ArgumentOutOfRangeException(),
-                };
+                    Debug.LogError(LOG_TAG + "Invalid backend");
+
+                    return;
+                }
+
+                var sTemplate = SelectScriptTemplate(type, backend, this.toggleSettingHasModel.value);
 
                 var viewName = this.inputViewName.value; // PlayerItemView
 
@@ -254,20 +375,42 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
                 sTemplate = sTemplate.Replace("X_VIEW_NAME", viewName);
                 sTemplate = sTemplate.Replace("X_PRESENTER_NAME", this.inputPresenterName.value);
 
-                if (TryGenerateScript(genScriptFullPath, genScriptPath, sTemplate))
+                if (!TryGenerateScript(genScriptFullPath, genScriptPath, sTemplate)) return;
+
+                Debug.Log($"<color=green>Create script success! Save at: {genScriptFullPath}</color>");
+
+                if (backend == ViewBackend.UIToolkit)
                 {
-                    Debug.Log($"<color=green>Create script success! Save at: {genScriptFullPath}</color>");
+                    // A UI Toolkit view has no prefab. Its asset is the UXML the generated
+                    // constructor clones, so that is what the second half of the wizard
+                    // produces — and it produces it NOW rather than after a domain reload,
+                    // because unlike the prefab path it does not need the generated type to
+                    // exist before it can write anything.
+                    var uxmlTemplate = SelectUxmlTemplate(type)
+                        .Replace("X_UXML_ROOT_NAME", ToKebabCase(viewName))
+                        .Replace("X_VIEW_NAME", viewName);
 
-                    var serializeObject = JsonConvert.SerializeObject(new TaskCreateView()
+                    var uxmlAssetPath = $"{projectRelativePrefabPath}/{viewName}.uxml";
+
+                    if (TryGenerateUxml(uxmlAssetPath, uxmlTemplate))
                     {
-                        IsTaskComplete  = false,
-                        PrefabAssetPath = $"{projectRelativePrefabPath}/{viewName}.prefab",
-                        TypeFullName    = $"{nameSpace}.{viewName}",
-                        ViewType        = type,
-                    });
+                        Debug.Log($"<color=green>Create UXML success! Save at: {uxmlAssetPath}</color>");
+                    }
 
-                    EditorPrefs.SetString(TASK_CREATE_VIEW_KEY, serializeObject);
+                    this.Close();
+
+                    return;
                 }
+
+                var serializeObject = JsonConvert.SerializeObject(new TaskCreateView()
+                {
+                    IsTaskComplete  = false,
+                    PrefabAssetPath = $"{projectRelativePrefabPath}/{viewName}.prefab",
+                    TypeFullName    = $"{nameSpace}.{viewName}",
+                    ViewType        = type,
+                });
+
+                EditorPrefs.SetString(TASK_CREATE_VIEW_KEY, serializeObject);
             };
         }
 
@@ -308,6 +451,22 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
                 if (string.IsNullOrWhiteSpace(evt.newValue)) return;
                 if (this.inputSettingName.value.Any(char.IsWhiteSpace)) this.inputSettingName.value = RemoveWhitespace(this.inputSettingName.value);
                 this.UpdateAllName();
+            });
+        }
+
+        private void InitViewBackendSetting()
+        {
+            this.dropdownSettingBackend.choices = Enum.GetNames(typeof(ViewBackend)).ToList();
+
+            this.dropdownSettingBackend.RegisterValueChangedCallback(evt =>
+            {
+                if (!Enum.TryParse(evt.newValue, out ViewBackend backend)) return;
+
+                // The second path field is the prefab folder for uGUI and the UXML folder
+                // for UI Toolkit. Relabelling it beats a second field that is empty half
+                // the time, and beats leaving it saying "Prefab Path" while it writes a
+                // .uxml.
+                this.inputSettingPrefabPath.label = backend == ViewBackend.UIToolkit ? "UXML Path" : "Prefab Path";
             });
         }
 
@@ -354,6 +513,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
             this.inputSettingPrefabPath.value = path;
             this.inputSettingName.value       = "Temp";
             this.dropdownSettingType.value    = this.dropdownSettingType.choices[0];
+            this.dropdownSettingBackend.value = this.dropdownSettingBackend.choices[0];
         }
 
         private static Type GetTypeFromAllAssemblies(string typeFullName)
@@ -376,6 +536,19 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         Item,
         Popup,
         Screen,
+    }
+
+    /// <summary>Which view backend the generated code targets.</summary>
+    /// <remarks>
+    /// Both are permanent. uGUI is not a legacy path being wound down — it stays as the
+    /// escape hatch for what UI Toolkit cannot do (per-element shaders and materials,
+    /// particles interleaved with UI), so the wizard offers both rather than migrating
+    /// its output from one to the other.
+    /// </remarks>
+    public enum ViewBackend
+    {
+        UGUI,
+        UIToolkit,
     }
 
     public class TaskCreateView

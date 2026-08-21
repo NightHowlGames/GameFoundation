@@ -7,6 +7,7 @@
             <ui:VisualElement name="inputContainer" class="element-group">
                 <ui:Label text="Setting" display-tooltip-when-elided="true" class="label-header"/>
                 <ui:DropdownField label="Type" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="dropdownSettingType"/>
+                <ui:DropdownField label="Backend" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="dropdownSettingBackend"/>
                 <ui:Toggle label="Has Model" name="toggleSettingHasModel"/>
                 <ui:TextField picking-mode="Ignore" label="Name" text="AName" name="inputSettingName"/>
                 <ui:TextField picking-mode="Ignore" label="Script Path" name="inputSettingScriptPath">

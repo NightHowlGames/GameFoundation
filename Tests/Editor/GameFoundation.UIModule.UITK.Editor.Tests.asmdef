@@ -1,0 +1,31 @@
+{
+  "name": "GameFoundation.UIModule.UITK.Editor.Tests",
+  "rootNamespace": "GameFoundation.UIModule.UITK.Editor.Tests",
+  "references": [
+    "GameFoundation.Editor",
+    "GameFoundation.UIModule",
+    "GameFoundation.UIModule.UITK",
+    "GameFoundation.Signals",
+    "GameFoundation.DI",
+    "UniTask",
+    "UniT.Logging",
+    "UniT.ResourceManagement",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

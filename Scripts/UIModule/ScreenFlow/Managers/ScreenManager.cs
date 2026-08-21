@@ -101,6 +101,51 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
         /// Cleanup/ destroy all screen on current scene
         /// </summary>
         public void CleanUpAllScreen();
+
+        /// <summary>
+        /// How many screens are currently open, in either backend.
+        /// </summary>
+        /// <remarks>
+        /// Added for the back-navigation flow, which has to answer exactly one question —
+        /// "is there a screen underneath the one on top?" — and had no way to ask it: the
+        /// list it needs is <c>ScreenManager</c>'s private <c>activeScreens</c>, and
+        /// <see cref="CurrentActiveScreen"/> tells you what is on top, not how deep the
+        /// stack is. <c>ScreenManager.Tick</c> reached straight into the private field
+        /// because it lives in the class; the UI Toolkit back handler does not, and
+        /// re-deriving the answer from the reactive properties would be a guess rather than
+        /// the same number.
+        ///
+        /// <para>Read-only, and additive: <c>ScreenManager</c> is the only implementer of
+        /// this interface in the package, in <c>com.gdk.3rd</c>, or in the consuming
+        /// project, so nothing else has to grow a member.</para>
+        /// </remarks>
+        public int ActiveScreenCount { get; }
+
+        /// <summary>
+        /// Enables the back/escape flow: close the top screen, or offer to quit at the root.
+        /// </summary>
+        /// <remarks>
+        /// Was public on <c>ScreenManager</c> only, and therefore unreachable through the
+        /// interface every consumer actually holds — which is a large part of why the flow
+        /// has never been switched on anywhere. See the BackToClose region for the rest.
+        /// </remarks>
+        public void EnableBackToClose(bool enable);
+
+        /// <summary>Whether the back/escape flow is enabled. False until someone turns it on.</summary>
+        public bool IsBackToCloseEnabled { get; }
+
+        /// <summary>
+        /// Runs one back/escape action: closes the top screen, or opens the quit
+        /// confirmation when the top screen is the only one.
+        /// </summary>
+        /// <remarks>
+        /// The body that used to sit inline in <c>Tick</c>, extracted so that a second input
+        /// source can drive it. It is not gated on <see cref="IsBackToCloseEnabled"/> — the
+        /// caller decides — because the two callers gate differently: the legacy poll asks
+        /// every frame, a <c>NavigationCancelEvent</c> arrives already meaning "the user
+        /// pressed back".
+        /// </remarks>
+        public void HandleBackNavigation();
     }
 
     public class ScreenManager : IScreenManager, ITickable, IInitializable, IDisposable
@@ -594,11 +639,55 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
             this.enableBackToClose = enable;
         }
 
+        public bool IsBackToCloseEnabled => this.enableBackToClose;
+
+        public int ActiveScreenCount => this.activeScreens.Count;
+
+        /// <summary>
+        /// The legacy Input Manager poll. Preserved exactly, and compiled only where the
+        /// legacy Input Manager exists.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>This flow is dead in the consuming project, and the guard is why it is
+        /// not also throwing.</b> <c>IndieRPGMMOAdventure/ProjectSettings/ProjectSettings.asset</c>
+        /// has <c>activeInputHandler: 1</c> — Input System package only, not "Both" — so
+        /// <c>UnityEngine.Input</c> throws <c>InvalidOperationException</c> on every call.
+        /// The condition below evaluates <c>Input.GetKeyDown</c> FIRST, before the
+        /// <c>enableBackToClose</c> short-circuit, so it would throw once per frame for as
+        /// long as <c>ScreenManager</c> is ticked. <c>ScreenManagerVContainer</c> registers
+        /// it <c>AsImplementedInterfaces()</c>, which includes <see cref="ITickable"/>, so any
+        /// project calling <c>RegisterGameFoundation</c> ticks it. <b>This project does not
+        /// call it</b> — <c>Assets/</c> has no reference to <c>GameFoundationVContainer</c> —
+        /// so the throw is latent here and live in the other consumers of this package. Do
+        /// not read a quiet console as evidence the flow is safe.</para>
+        ///
+        /// <para><c>ENABLE_LEGACY_INPUT_MANAGER</c> is defined by Unity when Active Input
+        /// Handling is "Input Manager (Old)" or "Both", and undefined when it is
+        /// "Input System Package (New)". Guarding on it keeps the uGUI escape path working
+        /// byte-for-byte in any project that still has legacy input — nothing is removed —
+        /// while a project on the new Input System alone gets a Tick that does nothing
+        /// instead of a Tick that throws. The UI Toolkit path
+        /// (<c>UIToolkitBackNavigation</c>) is what covers the second case, and it covers
+        /// gamepad B and the Android back button with it.</para>
+        ///
+        /// <para>Independently of input handling, the flow has never been reachable: until
+        /// this change <c>EnableBackToClose</c> was public on this class but absent from
+        /// <see cref="IScreenManager"/>, which is what every consumer resolves, and it has
+        /// zero call sites in this package, in <c>com.gdk.3rd</c> or in the consuming
+        /// project. <c>enableBackToClose</c> has therefore always been false.</para>
+        /// </remarks>
         void ITickable.Tick()
         {
+            #if ENABLE_LEGACY_INPUT_MANAGER
             // back button flow
             if (!Input.GetKeyDown(KeyCode.Escape) || !this.enableBackToClose) return;
 
+            this.HandleBackNavigation();
+            #endif
+        }
+
+        public void HandleBackNavigation()
+        {
             if (this.activeScreens.Count > 1)
             {
                 Debug.Log("Close last screen");
