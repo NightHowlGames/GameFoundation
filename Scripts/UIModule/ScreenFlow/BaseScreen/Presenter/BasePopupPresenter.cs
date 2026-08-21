@@ -3,47 +3,30 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
     using System;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
-    using GameFoundation.Scripts.UIModule.ScreenFlow.Signals;
     using GameFoundation.Signals;
     using UniT.Logging;
 
+    /// <summary>The uGUI popup presenter.</summary>
+    /// <remarks>
+    /// The three bodies that used to sit here — popup open, popup close, popup hide, with
+    /// their <c>PopupShowedSignal</c> / <c>PopupHiddenSignal</c> fires and the
+    /// end-of-frame yield the background blur depends on — moved to
+    /// <see cref="BaseScreenPresenterCore{TView}"/> as <c>OpenPopupViewAsync</c> /
+    /// <c>ClosePopupViewAsync</c> / <c>HidePopupView</c>, unchanged, so the UI Toolkit
+    /// popup presenter runs the same code rather than a copy of it. Behaviour here is
+    /// identical.
+    /// </remarks>
     public abstract class BasePopupPresenter<TView> : BaseScreenPresenter<TView> where TView : IScreenView
     {
         protected BasePopupPresenter(SignalBus signalBus, ILoggerManager loggerManager) : base(signalBus, loggerManager)
         {
         }
 
-        public override async UniTask OpenViewAsync()
-        {
-            await this.BindData();
+        public override UniTask OpenViewAsync() => this.OpenPopupViewAsync();
 
-            if (this.ScreenStatus == ScreenStatus.Opened) return;
-            this.ScreenStatus = ScreenStatus.Opened;
-            this.SignalBus.Fire(new ScreenShowSignal() { ScreenPresenter  = this });
-            this.SignalBus.Fire(new PopupShowedSignal() { ScreenPresenter = this });
-            // wait to end of frame then open screen view, take time to blur background capture last screen
-            await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate);
-            await this.View.Open();
-        }
+        public override UniTask CloseViewAsync() => this.ClosePopupViewAsync();
 
-        public override async UniTask CloseViewAsync()
-        {
-            if (this.ScreenStatus == ScreenStatus.Closed) return;
-            this.ScreenStatus = ScreenStatus.Closed;
-            await this.View.Close();
-            this.SignalBus.Fire(new PopupHiddenSignal() { ScreenPresenter = this });
-            this.SignalBus.Fire(new ScreenCloseSignal() { ScreenPresenter = this });
-            this.Dispose();
-        }
-
-        public override void HideView()
-        {
-            if (this.ScreenStatus == ScreenStatus.Hide) return;
-            this.ScreenStatus = ScreenStatus.Hide;
-            this.View.Hide();
-            this.SignalBus.Fire(new PopupHiddenSignal() { ScreenPresenter = this });
-            this.Dispose();
-        }
+        public override void HideView() => this.HidePopupView();
     }
 
     public abstract class BasePopupPresenter<TView, TModel> : BasePopupPresenter<TView>, IScreenPresenter<TModel> where TView : IScreenView

@@ -3,7 +3,12 @@
   "rootNamespace": "GameFoundation.UIModule.UITK",
   "references": [
     "GameFoundation.UIModule",
-    "UniTask"
+    "GameFoundation.Signals",
+    "GameFoundation.Utilities",
+    "GameFoundation.DI",
+    "UniTask",
+    "UniT.Logging",
+    "UniT.ResourceManagement"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
