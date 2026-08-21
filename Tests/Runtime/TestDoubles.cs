@@ -121,5 +121,47 @@ namespace GameFoundation.UIModule.UITK.Tests
 
         public void ResumeEverything() { }
     }
+
+    /// <summary>
+    /// An <see cref="IDependencyContainer"/> that just news up whatever it is asked for.
+    /// </summary>
+    /// <remarks>
+    /// The collection adapters take a container in their constructor precisely so a test
+    /// does not have to stand up a <c>SceneScope</c> to exercise them — the OSA adapters
+    /// call <c>GetCurrentContainer()</c> in <c>Awake</c> and are therefore untestable
+    /// without a scene. Everything except <c>Instantiate</c> throws, on purpose: if a
+    /// future adapter starts resolving services, the test should fail loudly rather than
+    /// quietly get a null.
+    /// </remarks>
+    public sealed class ActivatorContainer : IDependencyContainer
+    {
+        public int InstantiateCount { get; private set; }
+
+        public object Instantiate(Type type, params object[] @params)
+        {
+            ++this.InstantiateCount;
+            return Activator.CreateInstance(type);
+        }
+
+        public T Instantiate<T>(params object[] @params) => (T)this.Instantiate(typeof(T), @params);
+
+        public bool TryResolve(Type type, out object instance) => throw new NotSupportedException();
+
+        public bool TryResolve<T>(out T instance) => throw new NotSupportedException();
+
+        public object Resolve(Type type) => throw new NotSupportedException();
+
+        public T Resolve<T>() => throw new NotSupportedException();
+
+        public object[] ResolveAll(Type type) => throw new NotSupportedException();
+
+        public T[] ResolveAll<T>() => throw new NotSupportedException();
+
+        public void Inject(object instance) => throw new NotSupportedException();
+
+        public void InjectGameObject(GameObject instance) => throw new NotSupportedException();
+
+        public GameObject InstantiatePrefab(GameObject prefab) => throw new NotSupportedException();
+    }
 }
 #endif
