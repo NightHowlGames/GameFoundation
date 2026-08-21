@@ -39,6 +39,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **A failed screen load was cached and made that screen unopenable for the rest of the
+  process.** `ScreenManager.GetScreen` removed the in-flight `Task` from
+  `typeToPendingScreen` on the line *after* the await, so a throw skipped the removal and
+  left the faulted task in the dictionary. Every later open re-awaited it and rethrew the
+  first failure's exception, with a stack trace pointing at a load that had happened
+  minutes earlier — which reads as a recurring fault rather than one cached one. The
+  removal is now in a `finally`.
+- **No screen asset was ever released on a scene change.** `CleanUpAllScreen`, subscribed
+  to `StartLoadingNewSceneSignal`, called `Dispose()` on presenters whose status was
+  `Opened`, and `BaseScreenPresenterCore.Dispose()` has an empty body. `UnloadViewAsset` is
+  reachable only from `DestroyView` and is the only caller of `IAssetsManager.Unload`, so
+  every `VisualTreeAsset` and every uGUI screen prefab loaded in a scene stayed resident
+  for the process lifetime, and the leak grew with each scene the player passed through.
+  Now `DestroyView()` on every cached presenter, over a snapshot because the teardown
+  re-enters through `ScreenSelfDestroyedSignal` and mutates the dictionary being iterated.
+  **Behaviour change for consumers**, deliberately: `DestroyView` does strictly more than
+  the old call and still calls `Dispose()` internally, so nothing that used to run stops.
+
 - **`ScreenManager.Tick` threw once per frame on any project using the new Input System
   alone.** The condition evaluated `Input.GetKeyDown` *before* the `enableBackToClose`
   short-circuit, and with Active Input Handling set to "Input System Package (New)"
