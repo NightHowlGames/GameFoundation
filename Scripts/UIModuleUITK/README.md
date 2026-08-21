@@ -1,5 +1,32 @@
 # UI Toolkit screen backend
 
+> **Most of this moved.** The backend-agnostic half of what this document describes now
+> lives in **`com.cuvara.uitoolkit`** (`Packages/com.cuvara.uitoolkit/`), a standalone UPM
+> package that depends on no framework of its own. `NightHowlGames/GameFoundation` is a
+> **fork** of `GameDevelopmentKit/GameFoundation`, so every line added here makes a future
+> upstream merge harder; code that does not have to live in the fork no longer does.
+>
+> **What moved:** `BaseUIToolkitView`, `UIToolkitViewFactory`, `VisualElementViewLayer`,
+> `RootUIDocument` (and its UXML), the four collection adapters with their item view and
+> presenter bases, `SafeAreaElement` / `SafeAreaCalculator` / `PanelScaleRatio`, and the
+> back-navigation *event source*. The package's own README is the reference for all of it.
+>
+> **What stayed here, and why:** everything that touches this framework —
+> `UIToolkitScreenViewBackend` (it implements `IScreenViewBackend`; it *is* the adapter),
+> `BaseUIToolkitScreenPresenter` / `BaseUIToolkitPopupPresenter` (they take `SignalBus` and
+> extend `BaseScreenPresenterCore`), the notification popup presenter (it takes
+> `IAudioService`), and `UIToolkitBackNavigation` — which is now the back *policy* over the
+> package's event source, because "what does Back close" is an application question.
+>
+> **The dependency runs one way.** `com.gdk.core` references the package. The package never
+> references `com.gdk.core`, and a CI gate in it fails the build on any attempt to.
+> `IViewLayer` and `IViewSurface` are no longer defined here at all — the package owns them,
+> and this framework's seam consumes them rather than declaring a second copy.
+>
+> **`ISurfaceScreenView` is the whole of the bridge.** It adds no member a package
+> `BaseUIToolkitView` does not already have, so a view declares
+> `: BaseUIToolkitView, ISurfaceScreenView` and implements nothing extra.
+
 The UI Toolkit half of the screen flow. It sits behind the same `IScreenManager` the
 uGUI screens use — `OpenScreen<TPresenter>()` and `OpenScreen<TPresenter, TModel>(model)`
 open a UI Toolkit screen exactly the way they open a uGUI one — and it is entirely
