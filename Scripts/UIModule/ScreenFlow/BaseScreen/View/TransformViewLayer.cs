@@ -1,5 +1,6 @@
 namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View
 {
+    using Cuvara.UIToolkit.Core;
     using UnityEngine;
 
     /// <summary>The uGUI implementation of <see cref="IViewLayer"/>: a Transform.</summary>

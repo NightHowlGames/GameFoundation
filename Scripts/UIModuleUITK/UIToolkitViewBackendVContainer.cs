@@ -2,6 +2,7 @@
 namespace GameFoundation.Scripts.UIModule.UITK
 {
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
+    using Cuvara.UIToolkit.Managers;
     using GameFoundation.Scripts.UIModule.UITK.Managers;
     using VContainer;
 

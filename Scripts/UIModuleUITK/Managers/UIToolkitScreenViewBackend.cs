@@ -1,11 +1,13 @@
 namespace GameFoundation.Scripts.UIModule.UITK.Managers
 {
     using System;
+    using Cuvara.UIToolkit.Core;
+    using Cuvara.UIToolkit.Managers;
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.MVP;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using UniT.ResourceManagement;
     using UnityEngine.Scripting;
     using UnityEngine.UIElements;
@@ -90,7 +92,12 @@ namespace GameFoundation.Scripts.UIModule.UITK.Managers
             // one address, and the backend decides what that address resolves to.
             var visualTreeAsset = await this.assetsManager.LoadAsync<VisualTreeAsset>(addressableScreenPath);
 
-            return UIToolkitViewFactory.Create(viewType, visualTreeAsset);
+            // The package factory answers with its own contract; the screen flow wants the
+            // host one. Every UI Toolkit view registered with this backend implements
+            // both — ISurfaceScreenView adds nothing a BaseUIToolkitView does not already
+            // have — so this cast is the whole of the adaptation, and CanHandle above has
+            // already refused any type for which it would fail.
+            return (IUIView)UIToolkitViewFactory.Create(viewType, visualTreeAsset);
         }
     }
 }

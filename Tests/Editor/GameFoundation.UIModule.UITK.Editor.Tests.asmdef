@@ -2,6 +2,7 @@
   "name": "GameFoundation.UIModule.UITK.Editor.Tests",
   "rootNamespace": "GameFoundation.UIModule.UITK.Editor.Tests",
   "references": [
+    "Cuvara.UIToolkit",
     "GameFoundation.Editor",
     "GameFoundation.UIModule",
     "GameFoundation.UIModule.UITK",

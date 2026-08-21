@@ -1,10 +1,11 @@
 namespace GameFoundation.Scripts.UIModule.UITK.CommonScreen
 {
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.CommonScreen;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Scripts.Utilities;
     using GameFoundation.Signals;
     using UniT.Logging;
@@ -33,7 +34,15 @@ namespace GameFoundation.Scripts.UIModule.UITK.CommonScreen
     /// its space in the layout, so the panel would keep a gap the size of the button row
     /// that is not showing.</para>
     /// </remarks>
-    public class NotificationPopupUIToolkitView : BaseUIToolkitView
+    /// <remarks>
+    /// <para><b>Why it declares <see cref="ISurfaceScreenView"/> on top of the package
+    /// base.</b> <c>BaseUIToolkitView</c> lives in <c>com.cuvara.uitoolkit</c>, which knows
+    /// nothing about this framework's screen flow — that is the whole point of the
+    /// extraction. <c>ISurfaceScreenView</c> is this framework's contract, and it adds no
+    /// member the package base does not already have, so naming it here is the entire
+    /// adaptation: zero extra code, and the screen flow can now drive the view.</para>
+    /// </remarks>
+    public class NotificationPopupUIToolkitView : BaseUIToolkitView, ISurfaceScreenView
     {
         public Label  TxtTitle    { get; }
         public Label  TxtContent  { get; }
@@ -52,12 +61,9 @@ namespace GameFoundation.Scripts.UIModule.UITK.CommonScreen
             // CloneTree returns a TemplateContainer, which is a plain flex item with no
             // size of its own. The screen flow parents it into a layer and expects it to
             // cover that layer, so stretch it here rather than asking every layer's USS to
-            // know about it.
-            this.Root.style.position = Position.Absolute;
-            this.Root.style.left     = 0;
-            this.Root.style.top      = 0;
-            this.Root.style.right    = 0;
-            this.Root.style.bottom   = 0;
+            // know about it. The package base offers this rather than every view
+            // rediscovering the four style writes.
+            this.StretchToParent();
 
             this.TxtTitle    = this.Root.Q<Label>("txt-title");
             this.TxtContent  = this.Root.Q<Label>("txt-content");

@@ -2,6 +2,7 @@
   "name": "GameFoundation.UIModule.UITK",
   "rootNamespace": "GameFoundation.UIModule.UITK",
   "references": [
+    "Cuvara.UIToolkit",
     "GameFoundation.UIModule",
     "GameFoundation.Signals",
     "GameFoundation.Utilities",

@@ -9,6 +9,7 @@ namespace GameFoundation.UIModule.UITK.Tests
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
     using GameFoundation.Scripts.UIModule.UITK;
     using GameFoundation.Scripts.UIModule.UITK.CommonScreen;
+    using Cuvara.UIToolkit.Managers;
     using GameFoundation.Scripts.UIModule.UITK.Managers;
     using GameFoundation.Scripts.Utilities;
     using GameFoundation.Signals;
@@ -41,7 +42,7 @@ namespace GameFoundation.UIModule.UITK.Tests
     public class UIToolkitBackNavigationTests
     {
         private const string PopupUxmlPath = "Packages/com.gdk.core/Scripts/UIModuleUITK/CommonScreen/NotificationPopup.uxml";
-        private const string RootUxmlPath  = "Packages/com.gdk.core/Scripts/UIModuleUITK/Managers/RootUIDocument.uxml";
+        private const string RootUxmlPath  = "Packages/com.cuvara.uitoolkit/Runtime/Managers/RootUIDocument.uxml";
 
         private const string PopupKey  = "UIPopupNoticeUITK";
         private const string SecondKey = "UITestSecondScreen";

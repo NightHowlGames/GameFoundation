@@ -10,8 +10,9 @@ namespace GameFoundation.UIModule.UITK.Tests
     using GameFoundation.Scripts.UIModule.ScreenFlow.Managers;
     using GameFoundation.Scripts.UIModule.UITK;
     using GameFoundation.Scripts.UIModule.UITK.CommonScreen;
+    using Cuvara.UIToolkit.Managers;
     using GameFoundation.Scripts.UIModule.UITK.Managers;
-    using GameFoundation.Scripts.UIModule.UITK.View;
+    using Cuvara.UIToolkit.View;
     using GameFoundation.Scripts.Utilities;
     using GameFoundation.Signals;
     using GameFoundation.UIModule.UIModule;
@@ -44,7 +45,7 @@ namespace GameFoundation.UIModule.UITK.Tests
     public class UIToolkitScreenFlowTests
     {
         private const string PopupUxmlPath = "Packages/com.gdk.core/Scripts/UIModuleUITK/CommonScreen/NotificationPopup.uxml";
-        private const string RootUxmlPath  = "Packages/com.gdk.core/Scripts/UIModuleUITK/Managers/RootUIDocument.uxml";
+        private const string RootUxmlPath  = "Packages/com.cuvara.uitoolkit/Runtime/Managers/RootUIDocument.uxml";
 
         // The key the popup declares in its PopupInfo attribute. The whole point of the
         // backend contract is that this ONE key is what both backends address a screen by.

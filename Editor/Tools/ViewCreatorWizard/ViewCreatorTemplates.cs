@@ -180,17 +180,23 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
 
         // The UI Toolkit view has no [SerializeField]s and no Awake, so the elements are
         // found in the constructor and held — the shape NotificationPopupUIToolkitView
-        // uses. The stretch block is there for the same reason it is there: CloneTree
+        // uses. StretchToParent() is there for the same reason it is there: CloneTree
         // returns a TemplateContainer with no size of its own, and the screen flow parents
         // it into a layer expecting it to fill that layer.
+        //
+        // The view base now comes from com.cuvara.uitoolkit, which knows nothing about this
+        // framework's screen flow. ISurfaceScreenView is what bridges the two, and it adds
+        // no member the package base does not already have — so declaring it costs the
+        // generated view nothing but the name.
 
         private const string SCREEN_VIEW_UITK_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Signals;
     using UniT.Logging;
     using UnityEngine.Scripting;
@@ -200,7 +206,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
     {
     }
 
-    public class X_VIEW_NAME : BaseUIToolkitView
+    public class X_VIEW_NAME : BaseUIToolkitView, ISurfaceScreenView
     {
         public Label Title { get; }
 
@@ -208,11 +214,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         // Changing its signature makes the view unconstructable at runtime.
         public X_VIEW_NAME(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
         {
-            this.Root.style.position = Position.Absolute;
-            this.Root.style.left     = 0;
-            this.Root.style.top      = 0;
-            this.Root.style.right    = 0;
-            this.Root.style.bottom   = 0;
+            this.StretchToParent();
 
             this.Title = this.Root.Q<Label>(""title"");
         }
@@ -234,26 +236,23 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         private const string SCREEN_VIEW_UITK_NON_MODEL_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Signals;
     using UniT.Logging;
     using UnityEngine.Scripting;
     using UnityEngine.UIElements;
 
-    public class X_VIEW_NAME : BaseUIToolkitView
+    public class X_VIEW_NAME : BaseUIToolkitView, ISurfaceScreenView
     {
         public Label Title { get; }
 
         public X_VIEW_NAME(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
         {
-            this.Root.style.position = Position.Absolute;
-            this.Root.style.left     = 0;
-            this.Root.style.top      = 0;
-            this.Root.style.right    = 0;
-            this.Root.style.bottom   = 0;
+            this.StretchToParent();
 
             this.Title = this.Root.Q<Label>(""title"");
         }
@@ -277,7 +276,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         private const string ITEM_VIEW_UITK_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
-    using GameFoundation.Scripts.UIModule.UITK.Collections;
+    using Cuvara.UIToolkit.Collections;
     using UnityEngine.UIElements;
 
     public class X_MODEL_NAME
@@ -305,10 +304,11 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         private const string POPUP_VIEW_UITK_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Signals;
     using UniT.Logging;
     using UnityEngine.Scripting;
@@ -318,18 +318,14 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
     {
     }
 
-    public class X_VIEW_NAME : BaseUIToolkitView
+    public class X_VIEW_NAME : BaseUIToolkitView, ISurfaceScreenView
     {
         public Label  Title    { get; }
         public Button BtnClose { get; }
 
         public X_VIEW_NAME(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
         {
-            this.Root.style.position = Position.Absolute;
-            this.Root.style.left     = 0;
-            this.Root.style.top      = 0;
-            this.Root.style.right    = 0;
-            this.Root.style.bottom   = 0;
+            this.StretchToParent();
 
             this.Title    = this.Root.Q<Label>(""title"");
             this.BtnClose = this.Root.Q<Button>(""btn-close"");
@@ -364,27 +360,24 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
         private const string POPUP_VIEW_UITK_NON_MODEL_TEMPLATE =
             @"namespace X_NAME_SPACE
 {
+    using Cuvara.UIToolkit.View;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
     using GameFoundation.Signals;
     using UniT.Logging;
     using UnityEngine.Scripting;
     using UnityEngine.UIElements;
 
-    public class X_VIEW_NAME : BaseUIToolkitView
+    public class X_VIEW_NAME : BaseUIToolkitView, ISurfaceScreenView
     {
         public Label  Title    { get; }
         public Button BtnClose { get; }
 
         public X_VIEW_NAME(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
         {
-            this.Root.style.position = Position.Absolute;
-            this.Root.style.left     = 0;
-            this.Root.style.top      = 0;
-            this.Root.style.right    = 0;
-            this.Root.style.bottom   = 0;
+            this.StretchToParent();
 
             this.Title    = this.Root.Q<Label>(""title"");
             this.BtnClose = this.Root.Q<Button>(""btn-close"");
@@ -423,7 +416,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
 
         private const string SCREEN_UXML_TEMPLATE =
             @"<?xml version=""1.0"" encoding=""utf-8""?>
-<ui:UXML xmlns:ui=""UnityEngine.UIElements"" xmlns:gf=""GameFoundation.Scripts.UIModule.UITK.Utilities"" editor-extension-mode=""False"">
+<ui:UXML xmlns:ui=""UnityEngine.UIElements"" xmlns:gf=""Cuvara.UIToolkit.Utilities"" editor-extension-mode=""False"">
     <ui:VisualElement name=""X_UXML_ROOT_NAME"" style=""flex-grow: 1;"">
         <gf:SafeAreaElement name=""safe-area"" style=""flex-grow: 1;"">
             <ui:Label name=""title"" text=""X_VIEW_NAME"" />
@@ -444,7 +437,7 @@ namespace GameFoundation.Editor.Tools.ViewCreatorWizard
 
         private const string POPUP_UXML_TEMPLATE =
             @"<?xml version=""1.0"" encoding=""utf-8""?>
-<ui:UXML xmlns:ui=""UnityEngine.UIElements"" xmlns:gf=""GameFoundation.Scripts.UIModule.UITK.Utilities"" editor-extension-mode=""False"">
+<ui:UXML xmlns:ui=""UnityEngine.UIElements"" xmlns:gf=""Cuvara.UIToolkit.Utilities"" editor-extension-mode=""False"">
     <ui:VisualElement name=""X_UXML_ROOT_NAME"" style=""flex-grow: 1; align-items: center; justify-content: center;"">
         <ui:VisualElement name=""dimmer"" style=""position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6);"" />
 

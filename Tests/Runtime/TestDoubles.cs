@@ -7,8 +7,9 @@ namespace GameFoundation.UIModule.UITK.Tests
     using Cysharp.Threading.Tasks;
     using GameFoundation.DI;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
+    using Cuvara.UIToolkit.View;
     using GameFoundation.Scripts.Utilities;
     using GameFoundation.Signals;
     using UniT.Logging;
@@ -143,7 +144,7 @@ namespace GameFoundation.UIModule.UITK.Tests
     /// <c>UITestSecondScreen</c>. What it draws is irrelevant; that it occupies a slot in
     /// <c>activeScreens</c> is the whole point.</para>
     /// </remarks>
-    public sealed class SecondUIToolkitView : BaseUIToolkitView
+    public sealed class SecondUIToolkitView : BaseUIToolkitView, ISurfaceScreenView
     {
         public SecondUIToolkitView(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)
         {

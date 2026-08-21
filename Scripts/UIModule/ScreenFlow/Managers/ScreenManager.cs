@@ -5,6 +5,7 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
     using System.Linq;
     using System.Reflection;
     using System.Threading.Tasks;
+    using Cuvara.UIToolkit.Core;
     using Cysharp.Threading.Tasks;
     using GameFoundation.DI;
     using GameFoundation.Scripts.UIModule.CommonScreen;

@@ -1,5 +1,6 @@
 namespace GameFoundation.Scripts.UIModule.ScreenFlow
 {
+    using Cuvara.UIToolkit.Core;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using UnityEngine.SceneManagement;
 

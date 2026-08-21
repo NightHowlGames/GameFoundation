@@ -7,9 +7,9 @@ namespace GameFoundation.UIModule.UITK.Editor.Tests
     using GameFoundation.Editor.Tools.ViewCreatorWizard;
     using GameFoundation.Scripts.UIModule.MVP;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.Collections;
+    using Cuvara.UIToolkit.Collections;
     using GameFoundation.Scripts.UIModule.UITK.Presenter;
-    using GameFoundation.Scripts.UIModule.UITK.View;
+    using Cuvara.UIToolkit.View;
     using GameFoundation.Signals;
     using NUnit.Framework;
     using UniT.Logging;
@@ -168,9 +168,34 @@ namespace GameFoundation.UIModule.UITK.Editor.Tests
             {
                 var rendered = Render(type, ViewBackend.UIToolkit, hasModel);
 
-                Assert.That(rendered, Does.Contain(": BaseUIToolkitView"), $"{type}/hasModel={hasModel}");
+                Assert.That(rendered, Does.Contain(": BaseUIToolkitView, ISurfaceScreenView"), $"{type}/hasModel={hasModel}");
                 Assert.That(rendered, Does.Contain("ShopScreenView(VisualTreeAsset visualTreeAsset) : base(visualTreeAsset)"), $"{type}/hasModel={hasModel}");
             }
+        }
+
+        [Test]
+        public void TheUIToolkitTemplatesBridgeToTheHostContract()
+        {
+            // BaseUIToolkitView now lives in com.cuvara.uitoolkit, which knows nothing about
+            // this framework's screen flow. ISurfaceScreenView is the bridge, and it adds no
+            // member the package base does not already have — so a generated view that omits
+            // it compiles but cannot be opened through ScreenManager, which is exactly the
+            // kind of failure a template test should catch rather than a user.
+            foreach (var type in new[] { ViewType.Popup, ViewType.Screen })
+            foreach (var hasModel in new[] { true, false })
+            {
+                var rendered = Render(type, ViewBackend.UIToolkit, hasModel);
+
+                Assert.That(rendered, Does.Contain("using Cuvara.UIToolkit.View;"), $"{type}/hasModel={hasModel}");
+                Assert.That(rendered, Does.Contain("using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;"), $"{type}/hasModel={hasModel}");
+                Assert.That(rendered, Does.Contain("this.StretchToParent();"), $"{type}/hasModel={hasModel}");
+            }
+        }
+
+        [Test]
+        public void TheUIToolkitItemTemplatePointsAtThePackage()
+        {
+            Assert.That(Render(ViewType.Item, ViewBackend.UIToolkit, true), Does.Contain("using Cuvara.UIToolkit.Collections;"));
         }
 
         [Test]
@@ -254,7 +279,7 @@ namespace GameFoundation.UIModule.UITK.Editor.Tests
                 var uxml = Wizard.SelectUxmlTemplate(type);
 
                 Assert.That(uxml, Does.Contain("<gf:SafeAreaElement"), $"{type}");
-                Assert.That(uxml, Does.Contain("xmlns:gf=\"GameFoundation.Scripts.UIModule.UITK.Utilities\""), $"{type}");
+                Assert.That(uxml, Does.Contain("xmlns:gf=\"Cuvara.UIToolkit.Utilities\""), $"{type}");
             }
         }
 
