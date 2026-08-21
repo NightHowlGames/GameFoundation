@@ -389,6 +389,28 @@ namespace GameFoundation.UIModule.UITK.Tests
         }
 
         [Test]
+        public void ItCanBeAuthoredInUxml_WithItsAttributes()
+        {
+            // The claim the wizard's UXML template depends on: [UxmlElement] really does
+            // register this type under its namespace, and the two attributes really do
+            // deserialise. Nothing else in the package instantiates a SafeAreaElement from
+            // UXML, so without this the template would be a guess.
+            #if UNITY_EDITOR
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Packages/com.gdk.core/Tests/Runtime/SafeAreaScreen.uxml");
+            Assert.That(asset, Is.Not.Null, "Could not load the safe-area UXML.");
+
+            var element = asset.CloneTree().Q<SafeAreaElement>("safe-area");
+
+            Assert.That(element, Is.Not.Null, "The <gf:SafeAreaElement> in the UXML did not resolve to a SafeAreaElement.");
+            Assert.That(element.ConformX, Is.False, "conform-x=\"false\" did not deserialise.");
+            Assert.That(element.ConformY, Is.True, "conform-y should have kept its default.");
+            Assert.That(element.ApplyMode, Is.EqualTo(SafeAreaApplyMode.Inset), "apply-mode=\"Inset\" did not deserialise.");
+            #else
+            Assert.Ignore("Loads its UXML through the AssetDatabase; Editor only.");
+            #endif
+        }
+
+        [Test]
         public void AChangedSafeArea_IsPickedUpByRefresh()
         {
             // The rotation case, without a device: the source changes underneath and the

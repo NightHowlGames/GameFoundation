@@ -193,6 +193,90 @@ One known limitation of the harness, not of the adapters: in a headless test pan
 scroll test therefore asserts that the bound window advanced and that elements were
 rebound, rather than asserting a destination.
 
+## Authoring a screen
+
+Three things a screen author needs that had no UI Toolkit form until now.
+
+### Safe area — `Utilities/SafeAreaElement.cs`
+
+The counterpart of `Scripts/UIModule/Utilities/UIStuff/SafeArea.cs`. Drop a
+`<gf:SafeAreaElement>` around your content in UXML (declare
+`xmlns:gf="GameFoundation.Scripts.UIModule.UITK.Utilities"`) or add one in code.
+
+`PanelSettings.SetScreenToPanelSpaceFunction` — the obvious-looking candidate — is
+**not** what this uses, and the reason is worth writing down so nobody tries it again.
+It exists in 6000.3.9f1, but its documented job is "the transformation from screen space
+to panel space", i.e. where a *pointer* lands. Wiring a safe area through it moves the
+touch coordinates and not one pixel of layout: the UI still draws under the notch, and
+clicks stop landing on what is drawn. Insets on an element are the layout mechanism, so
+insets are what `SafeAreaElement` writes — as `padding` by default (background still
+reaches under the notch, the uGUI component's recommended usage) or as absolute edges in
+`SafeAreaApplyMode.Inset` (the element *is* the safe area, the uGUI `stretch = true`
+behaviour).
+
+The maths lives in `SafeAreaCalculator`, separately and publicly, because it is the only
+part that can be wrong in a way a test can catch. Screen pixels convert to panel units
+by dividing by `IPanel.scaledPixelsPerPoint` — which already folds in the scale mode,
+the reference resolution and the match value. Note the Y flip: `Screen.safeArea` has its
+origin bottom-left and UI Toolkit lays out from the top, so the *top* inset is measured
+from `safeArea.yMax`.
+
+Refreshes come from `GeometryChangedEvent`, attach, and a 250 ms poll on the panel
+scheduler (rotation can change `Screen.safeArea` without changing the panel size, and
+there is still no event for it — the uGUI component polls every frame for the same
+reason).
+
+### Screen scaling — `Utilities/PanelScaleRatio.cs`
+
+The counterpart of `ScaleScreenRatio`, and there is no component to attach because there
+is no `CanvasScaler` to attach it to: scaling is `PanelSettings.scaleMode` /
+`referenceResolution` / `screenMatchMode` / `match`, all present in 6000.3.9f1 and all
+mapping one-for-one onto the `CanvasScaler` fields. The 1.8 / 0.56 rule is carried over
+verbatim.
+
+The one real difference: a `CanvasScaler` is a scene component, a `PanelSettings` is a
+shared **project asset**. Writing `match` on it at runtime edits the asset on disk in the
+Editor for every scene that uses it. `UIToolkitPanelScaleRatio` therefore clones the
+settings and assigns the clone; turn `cloneSettings` off only if you actually want the
+asset edited.
+
+### Back / Escape — `Managers/UIToolkitBackNavigation.cs`
+
+`ScreenManager.Tick` polls `Input.GetKeyDown(KeyCode.Escape)`. That is the legacy Input
+Manager, and this project's `ProjectSettings.asset` has `activeInputHandler: 1` — Input
+System package only — where `UnityEngine.Input` *throws* rather than returning false.
+The condition evaluates `Input.GetKeyDown` before the `enableBackToClose` short-circuit,
+so it would throw once per frame; `ScreenManager` is registered
+`AsImplementedInterfaces()`, which includes `ITickable`, so it is ticked. The poll is now
+compiled behind `ENABLE_LEGACY_INPUT_MANAGER`: nothing is removed, and the uGUI path
+still works byte-for-byte wherever legacy input exists.
+
+Independently of input handling the flow was unreachable anyway — `EnableBackToClose`
+was public on `ScreenManager` but absent from `IScreenManager`, and has zero call sites
+in this package, in `com.gdk.3rd`, or in the consuming project. It is on the interface
+now, alongside `IsBackToCloseEnabled`, `ActiveScreenCount` and `HandleBackNavigation`.
+
+`UIToolkitBackNavigation` registers a `NavigationCancelEvent` callback on the panel root,
+which covers Escape, gamepad B and the Android back button as one event. Construct it
+from the scope that owns the `RootUIDocument` and dispose it with that scope — it is
+deliberately not auto-wired, because back-to-close is opt-in on the uGUI side too. Set
+`BackAction` in a UI-Toolkit-only project: the manager's default root action opens the
+*uGUI* quit popup, which needs a prefab and a `RootUICanvas`.
+
+## View Creator Wizard
+
+`Editor/Tools/ViewCreatorWizard/` gained a **Backend** dropdown — `UGUI` or `UIToolkit`.
+uGUI generates a `BaseView` subclass plus a prefab, exactly as before. UI Toolkit
+generates a `BaseUIToolkitView` + presenter pair plus a starter `.uxml` (with a
+`SafeAreaElement` already in it) and no prefab.
+
+The uGUI templates were also **stale and could not compile**: `using Zenject;`,
+`ILogService`, `public override void BindData(...)` against a `UniTask`-returning
+abstract, and `base(...)` calls to constructors that do not exist. All four are fixed,
+and `Tests/Editor/ViewCreatorTemplateTests.cs` now pins the templates against the real
+base types by reflection so the next migration fails there rather than in a generated
+file.
+
 ## Tests
 
 `Tests/Runtime` (PlayMode) opens the notification popup through the real
@@ -200,3 +284,13 @@ rebound, rather than asserting a destination.
 Addressables and audio. PlayMode rather than EditMode because the manager builds
 presenters through `GetCurrentContainer()`, which needs a live `SceneScope`, and a
 `LifetimeScope` only builds its container in `Awake`.
+
+`Tests/Runtime/SafeAreaTests.cs`, `PanelScaleRatioTests.cs` and
+`UIToolkitBackNavigationTests.cs` cover the authoring tranche; `Tests/Editor/` covers the
+wizard templates (a separate EditMode assembly, because `ViewCreatorWizard` lives in an
+Editor-only assembly that a PlayMode test assembly cannot reference).
+
+Two things are deliberately **not** covered, because they need a device rather than a
+test: that a real Android back press or gamepad B produces a `NavigationCancelEvent` at
+the panel root (the tests synthesise the event), and that a real notched device reports
+the `Screen.safeArea` the calculator is fed.
