@@ -1,5 +1,6 @@
 namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
 {
+    using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.View;
     using System;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.MVP;
@@ -23,6 +24,19 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
         public Transform GetViewParent();
 
         public Transform CurrentTransform { get; }
+
+        /// <summary>The view as something that can be moved between layers, backend-agnostic.</summary>
+        /// <remarks>
+        /// Added beside the Transform members rather than replacing them: those are part
+        /// of a public API that ThirdPartyServices and six consuming repositories compile
+        /// against, and replacing them would make this a coordinated multi-repo break for
+        /// no benefit today. Prefer this member in new code; the Transform ones stay for
+        /// the uGUI backend.
+        /// </remarks>
+        public IViewSurface ViewSurface { get; }
+
+        /// <summary>Backend-agnostic form of <see cref="SetViewParent(Transform)"/>.</summary>
+        public void SetViewParent(IViewLayer layer);
 
         public UniTask BindData();
 

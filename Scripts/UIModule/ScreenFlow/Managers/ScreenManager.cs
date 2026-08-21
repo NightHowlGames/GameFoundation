@@ -54,6 +54,13 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
         /// </summary>
         public Transform CurrentOverlayRoot { get; }
 
+        /// <summary>The same three roots as <see cref="IViewLayer"/>, for backend-agnostic callers.</summary>
+        public IViewLayer ScreenLayer  { get; }
+
+        public IViewLayer HiddenLayer  { get; }
+
+        public IViewLayer OverlayLayer { get; }
+
         /// <summary>
         /// Get instance of a screen
         /// </summary>
@@ -145,6 +152,16 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
         public Transform CurrentRootScreen  => this.RootUICanvas.RootUIShowTransform;
         public Transform CurrentHiddenRoot  => this.RootUICanvas.RootUIClosedTransform;
         public Transform CurrentOverlayRoot => this.RootUICanvas.RootUIOverlayTransform;
+
+        // Built once on first use, not per access: these are handed out on every screen
+        // open and close.
+        private IViewLayer screenLayer;
+        private IViewLayer hiddenLayer;
+        private IViewLayer overlayLayer;
+
+        public IViewLayer ScreenLayer  => this.screenLayer  ??= new TransformViewLayer(this.CurrentRootScreen);
+        public IViewLayer HiddenLayer  => this.hiddenLayer  ??= new TransformViewLayer(this.CurrentHiddenRoot);
+        public IViewLayer OverlayLayer => this.overlayLayer ??= new TransformViewLayer(this.CurrentOverlayRoot);
 
         private IScreenPresenter previousActiveScreen;
 

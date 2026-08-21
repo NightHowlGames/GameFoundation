@@ -27,9 +27,4 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Signals
     {
         public IScreenPresenter ScreenPresenter;
     }
-
-    public class ForceDestroyScreenSignal
-    {
-        public IScreenPresenter ScreenPresenter;
-    }
 }

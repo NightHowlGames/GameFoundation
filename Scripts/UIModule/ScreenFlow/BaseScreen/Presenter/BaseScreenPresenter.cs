@@ -58,6 +58,14 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter
 
         public Transform CurrentTransform => this.View.RectTransform;
 
+        private IViewSurface viewSurface;
+
+        // Cached: the screen flow reparents on every open and close, and allocating a
+        // wrapper per call would put garbage on a path that runs during transitions.
+        public IViewSurface ViewSurface => this.viewSurface ??= new RectTransformViewSurface(this.View.RectTransform);
+
+        public void SetViewParent(IViewLayer layer) { this.ViewSurface.SetParent(layer); }
+
         public abstract UniTask BindData();
 
         public virtual async UniTask OpenViewAsync()
