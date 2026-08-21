@@ -1,23 +1,30 @@
 {
-  "name": "GameFoundation.UIModule.UITK",
-  "rootNamespace": "GameFoundation.UIModule.UITK",
+  "name": "GameFoundation.UIModule.UITK.Tests",
+  "rootNamespace": "GameFoundation.UIModule.UITK.Tests",
   "references": [
     "GameFoundation.UIModule",
+    "GameFoundation.UIModule.UITK",
     "GameFoundation.Signals",
-    "GameFoundation.Utilities",
     "GameFoundation.DI",
+    "GameFoundation.Utilities",
     "UniTask",
     "UniT.Logging",
     "UniT.ResourceManagement",
-    "VContainer"
+    "VContainer",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
-  "autoReferenced": true,
-  "defineConstraints": [],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
   "versionDefines": [
     {
       "name": "jp.hadashikick.vcontainer",

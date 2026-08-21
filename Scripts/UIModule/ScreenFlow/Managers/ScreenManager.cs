@@ -163,13 +163,122 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
         public IViewLayer HiddenLayer  => this.hiddenLayer  ??= new TransformViewLayer(this.CurrentHiddenRoot);
         public IViewLayer OverlayLayer => this.overlayLayer ??= new TransformViewLayer(this.CurrentOverlayRoot);
 
+        #region Non-uGUI backend
+
+        // These three properties stay uGUI: they are on IScreenManager, callers already
+        // hold them, and making them backend-dependent would change what an existing
+        // caller gets back. A non-uGUI screen's layers come from its backend below.
+
+        private IScreenViewBackend viewBackend;
+        private bool               viewBackendResolved;
+
+        /// <summary>
+        /// The backend for views the uGUI path cannot build, or null when there is none.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Why it is resolved lazily instead of injected.</b> A constructor
+        /// parameter is the obvious shape and is wrong here: VContainer has no optional
+        /// constructor dependency, so adding one would make <c>ScreenManager</c>
+        /// unresolvable in every project that does not register a backend — which is all
+        /// six consuming repositories plus <c>com.gdk.3rd</c>, none of which use UI Toolkit.
+        /// <c>TryResolve</c> against the current container asks the same question without
+        /// making the answer mandatory, and it is asked once, not per screen.</para>
+        ///
+        /// <para>The setter exists so a test can supply a backend without a scene, a
+        /// container or a <c>UIDocument</c>. Setting it also marks resolution done, so an
+        /// explicitly-supplied backend is never overwritten by a container lookup.</para>
+        /// </remarks>
+        public IScreenViewBackend ViewBackend
+        {
+            get
+            {
+                if (this.viewBackendResolved) return this.viewBackend;
+                this.viewBackendResolved = true;
+
+                try
+                {
+                    // No container (no SceneScope yet) and no registration are both normal:
+                    // a uGUI-only project never registers one, and asking must not throw
+                    // through OpenScreen.
+                    if (this.GetCurrentContainer().TryResolve<IScreenViewBackend>(out var resolved)) this.viewBackend = resolved;
+                }
+                catch (Exception e)
+                {
+                    this.logger.Debug($"No {nameof(IScreenViewBackend)} available ({e.GetType().Name}); the uGUI path is the only one.");
+                }
+
+                return this.viewBackend;
+            }
+            set
+            {
+                this.viewBackend         = value;
+                this.viewBackendResolved = true;
+                this.presenterToBackend.Clear();
+            }
+        }
+
+        // Which backend serves which presenter type. Null value = the uGUI path, which is
+        // both the answer for every existing screen and the answer when nothing is known.
+        private readonly Dictionary<Type, IScreenViewBackend> presenterToBackend = new();
+
+        /// <summary>
+        /// The backend for <paramref name="presenterType"/>, or null for the uGUI path.
+        /// </summary>
+        /// <remarks>
+        /// Decided off the VIEW type, as suggested when this step was handed over, and it
+        /// does hold — but only because <c>ScreenPresenterViewType</c> can recover the view
+        /// type from the presenter's generic base first; the manager itself never had it.
+        /// The test is asked of the backend (<c>CanHandle</c>) rather than hard-coded to
+        /// <c>ISurfaceScreenView</c> here, so <c>ScreenManager</c> holds no opinion about
+        /// what any backend's views look like.
+        /// </remarks>
+        private IScreenViewBackend GetBackendFor(Type presenterType)
+        {
+            if (this.presenterToBackend.TryGetValue(presenterType, out var cached)) return cached;
+
+            var backend  = this.ViewBackend;
+            var viewType = ScreenPresenterViewType.Of(presenterType);
+            var result   = backend != null && viewType != null && backend.CanHandle(viewType) ? backend : null;
+
+            this.presenterToBackend[presenterType] = result;
+
+            return result;
+        }
+
+        /// <summary>Parks a screen's view in whichever hidden layer its backend uses.</summary>
+        /// <remarks>
+        /// The uGUI branch is the call this replaced, unchanged. The split exists because
+        /// <c>SetViewParent(Transform)</c> throws on a UI Toolkit presenter by design — a
+        /// <c>VisualElement</c> has no <c>Transform</c> — so the two backends cannot share
+        /// one reparent call.
+        /// </remarks>
+        private void MoveToHiddenLayer(IScreenPresenter screenPresenter)
+        {
+            var backend = this.GetBackendFor(screenPresenter.GetType());
+
+            if (backend == null) screenPresenter.SetViewParent(this.CurrentHiddenRoot);
+            else screenPresenter.SetViewParent(backend.HiddenLayer);
+        }
+
+        /// <summary>Moves a screen's view into its open layer — overlay or screen.</summary>
+        private void MoveToActiveLayer(IScreenPresenter screenPresenter)
+        {
+            var backend   = this.GetBackendFor(screenPresenter.GetType());
+            var isOverlay = this.CheckPopupIsOverlay(screenPresenter);
+
+            if (backend == null) screenPresenter.SetViewParent(isOverlay ? this.CurrentOverlayRoot : this.CurrentRootScreen);
+            else screenPresenter.SetViewParent(isOverlay ? backend.OverlayLayer : backend.ScreenLayer);
+        }
+
+        #endregion
+
         private IScreenPresenter previousActiveScreen;
 
         public async UniTask<T> OpenScreen<T>() where T : IScreenPresenter
         {
             var nextScreen = await this.GetScreen<T>() ?? throw new InvalidOperationException($"The {typeof(T).Name} screen does not exist");
-            nextScreen.SetViewParent(this.CurrentHiddenRoot);
-            nextScreen.SetViewParent(this.CheckPopupIsOverlay(nextScreen) ? this.CurrentOverlayRoot : this.CurrentRootScreen);
+            this.MoveToHiddenLayer(nextScreen);
+            this.MoveToActiveLayer(nextScreen);
             await nextScreen.OpenViewAsync();
             return nextScreen;
         }
@@ -177,8 +286,8 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
         public async UniTask<TPresenter> OpenScreen<TPresenter, TModel>(TModel model) where TPresenter : IScreenPresenter<TModel>
         {
             var nextScreen = await this.GetScreen<TPresenter>() ?? throw new InvalidOperationException($"The {typeof(TPresenter).Name} screen does not exist");
-            nextScreen.SetViewParent(this.CurrentHiddenRoot);
-            nextScreen.SetViewParent(this.CheckPopupIsOverlay(nextScreen) ? this.CurrentOverlayRoot : this.CurrentRootScreen);
+            this.MoveToHiddenLayer(nextScreen);
+            this.MoveToActiveLayer(nextScreen);
             await nextScreen.OpenViewAsync(model);
             return nextScreen;
         }
@@ -208,10 +317,30 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
                 screenPresenter = (this.GetCurrentContainer().Instantiate(screenType) as IScreenPresenter)!;
                 var screenInfo = screenPresenter.GetType().GetCustomAttribute<ScreenInfoAttribute>();
 
-                var prefab     = await this.assetsManager.LoadAsync<GameObject>(screenInfo.AddressableScreenPath);
-                var viewObject = Object.Instantiate(prefab, this.CheckPopupIsOverlay(screenPresenter) ? this.CurrentOverlayRoot : this.CurrentRootScreen).GetComponent<IScreenView>();
+                var backend = this.GetBackendFor(screenType);
 
-                screenPresenter.SetView(viewObject);
+                if (backend == null)
+                {
+                    // The uGUI path, unchanged: load a prefab, instantiate it straight into
+                    // its layer, and take IScreenView off the instantiated GameObject.
+                    var prefab     = await this.assetsManager.LoadAsync<GameObject>(screenInfo.AddressableScreenPath);
+                    var viewObject = Object.Instantiate(prefab, this.CheckPopupIsOverlay(screenPresenter) ? this.CurrentOverlayRoot : this.CurrentRootScreen).GetComponent<IScreenView>();
+
+                    screenPresenter.SetView(viewObject);
+                }
+                else
+                {
+                    // The backend path. It differs in two ways and only two: the view is
+                    // built rather than Instantiate'd (there is no GameObject to hang it
+                    // on), and parenting is therefore a separate step instead of an
+                    // argument to Instantiate. SetView comes first because the parenting
+                    // goes through the presenter's ViewSurface, which is the view's own.
+                    var view = await backend.CreateViewAsync(ScreenPresenterViewType.Of(screenType), screenInfo.AddressableScreenPath);
+
+                    screenPresenter.SetView(view);
+                    this.MoveToActiveLayer(screenPresenter);
+                }
+
                 this.typeToLoadedScreenPresenter.Add(screenType, screenPresenter);
 
                 return screenPresenter;
@@ -403,7 +532,7 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
                 this.activeScreens.Remove(closeScreenPresenter);
             }
 
-            closeScreenPresenter?.SetViewParent(this.CurrentHiddenRoot);
+            if (closeScreenPresenter != null) this.MoveToHiddenLayer(closeScreenPresenter);
         }
 
         private void OnManualInitScreen(ManualInitScreenSignal signal)
@@ -412,6 +541,17 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
             var screenType      = screenPresenter.GetType();
 
             if (!this.typeToLoadedScreenPresenter.TryAdd(screenType, screenPresenter)) return;
+
+            if (this.GetBackendFor(screenType) != null)
+            {
+                // Manual init means "the view is already sitting in the RootUICanvas
+                // hierarchy, go find it by name". A non-uGUI view is not in that hierarchy
+                // and is not a Transform, so there is nothing to find. Say so rather than
+                // fall through into Transform.Find and report a missing object.
+                this.logger.Error($"{screenType.Name} uses a non-uGUI view backend; {nameof(ManualInitScreenSignal)} is uGUI-only.");
+                return;
+            }
+
             var screenInfo = screenPresenter.GetType().GetCustomAttribute<ScreenInfoAttribute>();
 
             var viewObj = this.CurrentRootScreen.Find(screenInfo.AddressableScreenPath);

@@ -98,11 +98,11 @@ namespace GameFoundation.Scripts.UIModule.UITK.CommonScreen
     /// machine and the same <c>PopupShowedSignal</c> / <c>PopupHiddenSignal</c> fires —
     /// because both inherit it from <c>BaseScreenPresenterCore</c>.
     ///
-    /// <para>Not openable through <c>ScreenManager</c> yet, by design: the manager still
-    /// instantiates a prefab and pulls <c>IScreenView</c> off it with
-    /// <c>GetComponent</c>, which a plain C# view has no answer for. Teaching the manager
-    /// to build a view from a <c>VisualTreeAsset</c> is the next step and is not part of
-    /// this change.</para>
+    /// <para>Openable through <c>ScreenManager</c> like any other screen. The manager
+    /// picks the UI Toolkit construction path off this presenter's view type and builds
+    /// the view from the <c>VisualTreeAsset</c> at <c>UIPopupNoticeUITK</c>; that needs
+    /// <c>RegisterUIToolkitViewBackend()</c> called on the scope and a
+    /// <c>RootUIDocument</c> in the scene. See <c>Scripts/UIModuleUITK/README.md</c>.</para>
     /// </remarks>
     [PopupInfo("UIPopupNoticeUITK", true, false, true)]
     public class NotificationPopupUIToolkitPresenter : BaseUIToolkitPopupPresenter<NotificationPopupUIToolkitView, NotificationPopupModel>

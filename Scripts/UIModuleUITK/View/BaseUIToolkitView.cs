@@ -41,7 +41,14 @@ namespace GameFoundation.Scripts.UIModule.UITK.View
         public event Action ViewDidDestroy;
 
         /// <summary>The root element of this view. Never null after construction.</summary>
-        protected VisualElement Root { get; }
+        /// <remarks>
+        /// Public, and deliberately: it is the exact counterpart of <c>IScreenView.RectTransform</c>
+        /// on the uGUI view, which is public for the same reason — the thing that says where
+        /// this view actually sits in the tree. Screen flow does not use it (it goes through
+        /// <see cref="ViewSurface"/>); tests and debug tooling need it to assert or report
+        /// what a view is attached to.
+        /// </remarks>
+        public VisualElement Root { get; }
 
         private IViewSurface viewSurface;
 
