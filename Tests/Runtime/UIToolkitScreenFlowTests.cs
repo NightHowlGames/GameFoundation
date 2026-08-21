@@ -3,6 +3,7 @@ namespace GameFoundation.UIModule.UITK.Tests
 {
     using System;
     using System.Collections;
+    using System.Collections.Generic;
     using Cysharp.Threading.Tasks;
     using GameFoundation.Scripts.UIModule.CommonScreen;
     using GameFoundation.Scripts.UIModule.ScreenFlow.BaseScreen.Presenter;
@@ -74,6 +75,7 @@ namespace GameFoundation.UIModule.UITK.Tests
 
             this.screenManager              = null;
             this.rootUIDocument             = null;
+            this.assetsManager              = null;
             LogAssert.ignoreFailingMessages = false;
         }
 
@@ -256,7 +258,118 @@ namespace GameFoundation.UIModule.UITK.Tests
         #region Scene
 
         /// <summary>Builds the smallest scene a UI Toolkit screen can be opened in.</summary>
-        private void BuildScene()
+        /// <summary>The stub the scene was built with, so a test can inspect what it unloaded.</summary>
+        private StubAssetsManager assetsManager;
+
+        #region Regression: two defects that were live in ScreenManager
+
+        /// <summary>
+        /// A load that fails once must not make the screen unopenable for the rest of the
+        /// process.
+        /// </summary>
+        /// <remarks>
+        /// <c>GetScreen</c> put the in-flight <c>Task</c> into <c>typeToPendingScreen</c> and
+        /// removed it on the line AFTER the await. A throw skipped the removal, so the
+        /// faulted task stayed cached and every later open re-awaited it and rethrew the
+        /// first failure's exception — with a stack trace pointing at a load that had
+        /// happened minutes earlier, which reads as a recurring fault rather than one cached
+        /// one.
+        ///
+        /// <para>The second open here happens after the asset has been added, so it can only
+        /// fail if the stale task was reused. That is what makes this decisive rather than
+        /// merely suggestive: it asserts a retry SUCCEEDS, not that an exception changed
+        /// shape.</para>
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator GetScreen_AfterAFailedLoad_RetriesInsteadOfRethrowingTheCachedFailure() => UniTask.ToCoroutine(async () =>
+        {
+            this.BuildScene(registerPopupAsset: false);
+
+            var firstFailed = false;
+            try
+            {
+                await this.screenManager.OpenScreen<NotificationPopupUIToolkitPresenter, NotificationPopupModel>(new() { Title = "t", Content = "c" });
+            }
+            catch (KeyNotFoundException)
+            {
+                firstFailed = true;
+            }
+
+            Assert.That(firstFailed, Is.True, "The first open was supposed to fail — the stub has no asset for that key, so the test is not exercising what it claims.");
+
+            // The asset now exists. Nothing else about the manager has changed.
+            this.assetsManager.Add(PopupKey, LoadUxml(PopupUxmlPath));
+
+            var presenter = await this.screenManager.OpenScreen<NotificationPopupUIToolkitPresenter, NotificationPopupModel>(new() { Title = "t", Content = "c" });
+
+            Assert.That(presenter, Is.Not.Null, "The retry returned nothing.");
+            Assert.That(presenter.View, Is.Not.Null,
+                "The second open reused the FAULTED task cached by the first. The screen is unopenable for the process lifetime even though its asset is now loadable.");
+        });
+
+        /// <summary>
+        /// A scene change must release the screen assets it loaded.
+        /// </summary>
+        /// <remarks>
+        /// <c>CleanUpAllScreen</c> — subscribed to <c>StartLoadingNewSceneSignal</c> — called
+        /// <c>Dispose()</c> on presenters whose status was <c>Opened</c>, and
+        /// <c>BaseScreenPresenterCore.Dispose()</c> has an EMPTY body. <c>UnloadViewAsset</c>
+        /// is reachable only from <c>DestroyView</c>, and it is the only caller of
+        /// <c>IAssetsManager.Unload</c>, so nothing was ever released on the scene-change
+        /// path. Every <c>VisualTreeAsset</c> and every uGUI screen prefab stayed resident
+        /// for the lifetime of the process, and the leak grew with every scene the player
+        /// passed through.
+        ///
+        /// <para>Nothing failed, nothing threw and no test went red while that was true,
+        /// which is exactly why it survived: the only symptom is memory that never comes
+        /// back.</para>
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator CleanUpAllScreen_UnloadsTheAssetsItLoaded() => UniTask.ToCoroutine(async () =>
+        {
+            this.BuildScene();
+
+            await this.screenManager.OpenScreen<NotificationPopupUIToolkitPresenter, NotificationPopupModel>(new() { Title = "t", Content = "c" });
+
+            Assert.That(this.assetsManager.UnloadedKeys, Is.Empty, "Nothing should have been unloaded while the screen is open.");
+
+            this.screenManager.CleanUpAllScreen();
+
+            Assert.That(this.assetsManager.UnloadedKeys, Does.Contain(PopupKey),
+                $"CleanUpAllScreen released nothing. IAssetsManager.Unload was never called for '{PopupKey}', so the asset stays resident for the process lifetime.");
+        });
+
+        /// <summary>
+        /// The cleanup must survive its own re-entrancy.
+        /// </summary>
+        /// <remarks>
+        /// <c>DestroyView</c> leads to <c>View.DestroySelf()</c> -> <c>ViewDidDestroy</c> ->
+        /// <c>OnViewDestroyed</c> -> <c>ScreenSelfDestroyedSignal</c> -> <c>OnDestroyScreen</c>
+        /// -> <c>typeToLoadedScreenPresenter.Remove(...)</c>. Iterating the live dictionary
+        /// throws <c>InvalidOperationException: Collection was modified</c>, so the fix for
+        /// the leak above is only correct together with the snapshot.
+        /// </remarks>
+        [UnityTest]
+        public IEnumerator CleanUpAllScreen_DoesNotThrowWhenDestroyingMutatesTheCache() => UniTask.ToCoroutine(async () =>
+        {
+            this.BuildScene();
+
+            await this.screenManager.OpenScreen<NotificationPopupUIToolkitPresenter, NotificationPopupModel>(new() { Title = "t", Content = "c" });
+
+            Assert.DoesNotThrow(() => this.screenManager.CleanUpAllScreen(),
+                "CleanUpAllScreen iterated the live dictionary while destroying screens mutated it.");
+        });
+
+        #endregion
+
+        private void BuildScene() => this.BuildScene(registerPopupAsset: true);
+
+        /// <param name="registerPopupAsset">
+        /// False leaves the popup's key absent from the stub, so <c>LoadAsync</c> throws
+        /// <see cref="KeyNotFoundException"/> — which is how a real missing Addressables
+        /// entry reaches <c>GetScreen</c>.
+        /// </param>
+        private void BuildScene(bool registerPopupAsset)
         {
             this.panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
 
@@ -275,7 +388,8 @@ namespace GameFoundation.UIModule.UITK.Tests
             Assert.That(this.rootUIDocument.RootUIShowElement, Is.Not.Null, "RootUIDocument did not resolve its layers; the root document UXML did not load.");
 
             var assetsManager = new StubAssetsManager();
-            assetsManager.Add(PopupKey, LoadUxml(PopupUxmlPath));
+            if (registerPopupAsset) assetsManager.Add(PopupKey, LoadUxml(PopupUxmlPath));
+            this.assetsManager = assetsManager;
 
             // Same inactive-then-activate trick: LifetimeScope builds in Awake.
             this.scopeObject = new GameObject(nameof(TestSceneScope));

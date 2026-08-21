@@ -353,10 +353,26 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
                 this.typeToPendingScreen.Add(screenType, loadingTask);
             }
 
-            var result = await loadingTask;
-            this.typeToPendingScreen.Remove(screenType);
-
-            return result;
+            // The removal is in a finally, and that is the whole point of this shape.
+            //
+            // It used to sit after the await. If InstantiateScreen threw — a missing
+            // Addressables entry, a presenter with no ScreenInfoAttribute, a prefab whose
+            // GetComponent<IScreenView>() came back null — the removal never ran and the
+            // FAULTED Task stayed in the dictionary. Every later attempt to open that
+            // screen found it, awaited it again, and rethrew the original exception from
+            // the first failure. The screen was unopenable for the rest of the process, and
+            // the stack trace pointed at a load that had happened minutes earlier, so it
+            // read as a recurring fault rather than one cached failure.
+            //
+            // Removing on the failure path means the next open genuinely retries.
+            try
+            {
+                return await loadingTask;
+            }
+            finally
+            {
+                this.typeToPendingScreen.Remove(screenType);
+            }
 
             async Task<IScreenPresenter> InstantiateScreen()
             {
@@ -454,10 +470,35 @@ namespace GameFoundation.Scripts.UIModule.ScreenFlow.Managers
             this.RootPopup.Value           = null;
             this.previousActiveScreen      = null;
 
-            foreach (var screen in this.typeToLoadedScreenPresenter)
+            // DestroyView, not Dispose, and on every cached presenter rather than only the
+            // opened ones.
+            //
+            // This used to call Dispose() on presenters whose status was Opened.
+            // BaseScreenPresenterCore.Dispose() has an EMPTY body, so on the scene-change
+            // path — this method is subscribed to StartLoadingNewSceneSignal — the loop did
+            // nothing at all before clearing the dictionary. UnloadViewAsset is reachable
+            // only from DestroyView, and UnloadViewAsset is the only caller of
+            // IAssetsManager.Unload, so no screen asset was ever released on a scene change.
+            // Every VisualTreeAsset and every uGUI screen prefab loaded in a scene stayed
+            // resident for the lifetime of the process, and the leak grew with each scene
+            // the player passed through.
+            //
+            // Skipping the non-Opened presenters made it worse rather than safer: a screen
+            // that had been closed was still cached, still holding its Addressables handle,
+            // and was about to be dropped from the dictionary unreferenced.
+            //
+            // The iteration is over a SNAPSHOT because this is re-entrant. DestroyView ->
+            // View.DestroySelf() -> ViewDidDestroy -> OnViewDestroyed -> fires
+            // ScreenSelfDestroyedSignal -> OnDestroyScreen -> typeToLoadedScreenPresenter
+            // .Remove(...). Iterating the live dictionary throws
+            // InvalidOperationException: Collection was modified.
+            //
+            // Behaviour change for consumers, deliberately: DestroyView does strictly more
+            // than the old call, and it still calls Dispose() internally, so nothing that
+            // used to run stops running.
+            foreach (var screen in this.typeToLoadedScreenPresenter.Values.ToArray())
             {
-                if (screen.Value.ScreenStatus != ScreenStatus.Opened) continue;
-                screen.Value.Dispose();
+                screen.DestroyView();
             }
 
             this.typeToLoadedScreenPresenter.Clear();
